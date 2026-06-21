@@ -669,6 +669,12 @@ export const useSavingStore = defineStore('saving', () => {
     return remaining / daysLeft
   }
 
+  function updateWish(id: string, updates: Partial<Pick<Wish, 'name' | 'icon' | 'targetAmount' | 'category' | 'deadline' | 'priority'>>) {
+    const wish = wishes.value.find(w => w.id === id)
+    if (!wish) return
+    Object.assign(wish, updates)
+  }
+
   function deleteWish(id: string) {
     const idx = wishes.value.findIndex((w) => w.id === id)
     if (idx === -1) return
@@ -879,6 +885,7 @@ export const useSavingStore = defineStore('saving', () => {
     addTransaction,
     deleteTransaction,
     addWish,
+    updateWish,
     deleteWish,
     depositToWish,
     withdrawFromWish,
