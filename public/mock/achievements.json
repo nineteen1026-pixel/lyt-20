@@ -1,0 +1,368 @@
+{
+  "achievements": [
+    {
+      "id": "ach-first-income",
+      "name": "初入储蓄",
+      "category": "saving",
+      "description": "记录第一笔收入，开启储蓄之旅",
+      "icon": "💰",
+      "rarity": "common",
+      "condition": {
+        "type": "first_income",
+        "target": 1,
+        "description": "记录第一笔收入"
+      },
+      "pointsReward": 50
+    },
+    {
+      "id": "ach-saver-1000",
+      "name": "千元户",
+      "category": "saving",
+      "description": "累计储蓄达到 ¥1,000",
+      "icon": "🏦",
+      "rarity": "common",
+      "condition": {
+        "type": "total_savings",
+        "target": 1000,
+        "description": "累计储蓄 ¥1,000"
+      },
+      "pointsReward": 100
+    },
+    {
+      "id": "ach-saver-5000",
+      "name": "五千元户",
+      "category": "saving",
+      "description": "累计储蓄达到 ¥5,000",
+      "icon": "🪙",
+      "rarity": "rare",
+      "condition": {
+        "type": "total_savings",
+        "target": 5000,
+        "description": "累计储蓄 ¥5,000"
+      },
+      "pointsReward": 200
+    },
+    {
+      "id": "ach-saver-10000",
+      "name": "万元户",
+      "category": "saving",
+      "description": "累计储蓄达到 ¥10,000",
+      "icon": "💎",
+      "rarity": "epic",
+      "condition": {
+        "type": "total_savings",
+        "target": 10000,
+        "description": "累计储蓄 ¥10,000"
+      },
+      "pointsReward": 500
+    },
+    {
+      "id": "ach-saver-50000",
+      "name": "储蓄大师",
+      "category": "saving",
+      "description": "累计储蓄达到 ¥50,000",
+      "icon": "👑",
+      "rarity": "legendary",
+      "condition": {
+        "type": "total_savings",
+        "target": 50000,
+        "description": "累计储蓄 ¥50,000"
+      },
+      "pointsReward": 2000
+    },
+    {
+      "id": "ach-mile-100",
+      "name": "起点之星",
+      "category": "milestone",
+      "description": "积分达到 100",
+      "icon": "⭐",
+      "rarity": "common",
+      "condition": {
+        "type": "milestone_reached",
+        "target": 100,
+        "description": "积分达到 100"
+      },
+      "pointsReward": 20
+    },
+    {
+      "id": "ach-mile-1000",
+      "name": "千分达人",
+      "category": "milestone",
+      "description": "积分达到 1,000",
+      "icon": "🌟",
+      "rarity": "rare",
+      "condition": {
+        "type": "milestone_reached",
+        "target": 1000,
+        "description": "积分达到 1,000"
+      },
+      "pointsReward": 100
+    },
+    {
+      "id": "ach-mile-10000",
+      "name": "万分传奇",
+      "category": "milestone",
+      "description": "积分达到 10,000",
+      "icon": "🌠",
+      "rarity": "legendary",
+      "condition": {
+        "type": "milestone_reached",
+        "target": 10000,
+        "description": "积分达到 10,000"
+      },
+      "pointsReward": 1000
+    },
+    {
+      "id": "ach-streak-7",
+      "name": "坚持一周",
+      "category": "consistency",
+      "description": "连续记账 7 天",
+      "icon": "📅",
+      "rarity": "common",
+      "condition": {
+        "type": "consecutive_days",
+        "target": 7,
+        "description": "连续记账 7 天"
+      },
+      "pointsReward": 70
+    },
+    {
+      "id": "ach-streak-30",
+      "name": "月度达人",
+      "category": "consistency",
+      "description": "连续记账 30 天",
+      "icon": "🗓️",
+      "rarity": "rare",
+      "condition": {
+        "type": "consecutive_days",
+        "target": 30,
+        "description": "连续记账 30 天"
+      },
+      "pointsReward": 300
+    },
+    {
+      "id": "ach-streak-100",
+      "name": "百日坚持",
+      "category": "consistency",
+      "description": "连续记账 100 天",
+      "icon": "🏆",
+      "rarity": "epic",
+      "condition": {
+        "type": "consecutive_days",
+        "target": 100,
+        "description": "连续记账 100 天"
+      },
+      "pointsReward": 1000
+    },
+    {
+      "id": "ach-wish-first",
+      "name": "圆梦新手",
+      "category": "wish",
+      "description": "完成第一个愿望",
+      "icon": "🎁",
+      "rarity": "common",
+      "condition": {
+        "type": "wish_achieved",
+        "target": 1,
+        "description": "完成 1 个愿望"
+      },
+      "pointsReward": 100
+    },
+    {
+      "id": "ach-wish-5",
+      "name": "愿望收藏家",
+      "category": "wish",
+      "description": "完成 5 个愿望",
+      "icon": "🎊",
+      "rarity": "rare",
+      "condition": {
+        "type": "wish_achieved",
+        "target": 5,
+        "description": "完成 5 个愿望"
+      },
+      "pointsReward": 300
+    },
+    {
+      "id": "ach-wish-10",
+      "name": "圆梦大师",
+      "category": "wish",
+      "description": "完成 10 个愿望",
+      "icon": "🎆",
+      "rarity": "epic",
+      "condition": {
+        "type": "wish_achieved",
+        "target": 10,
+        "description": "完成 10 个愿望"
+      },
+      "pointsReward": 800
+    },
+    {
+      "id": "ach-decor-3",
+      "name": "装饰新手",
+      "category": "decoration",
+      "description": "解锁 3 个装饰",
+      "icon": "🖼️",
+      "rarity": "common",
+      "condition": {
+        "type": "decoration_count",
+        "target": 3,
+        "description": "解锁 3 个装饰"
+      },
+      "pointsReward": 50
+    },
+    {
+      "id": "ach-decor-10",
+      "name": "室内设计师",
+      "category": "decoration",
+      "description": "解锁 10 个装饰",
+      "icon": "🎨",
+      "rarity": "rare",
+      "condition": {
+        "type": "decoration_count",
+        "target": 10,
+        "description": "解锁 10 个装饰"
+      },
+      "pointsReward": 200
+    },
+    {
+      "id": "ach-decor-20",
+      "name": "装饰收藏家",
+      "category": "decoration",
+      "description": "解锁 20 个装饰",
+      "icon": "🏰",
+      "rarity": "epic",
+      "condition": {
+        "type": "decoration_count",
+        "target": 20,
+        "description": "解锁 20 个装饰"
+      },
+      "pointsReward": 500
+    },
+    {
+      "id": "ach-tx-10",
+      "name": "记账新手",
+      "category": "saving",
+      "description": "记录 10 笔交易",
+      "icon": "📝",
+      "rarity": "common",
+      "condition": {
+        "type": "transaction_count",
+        "target": 10,
+        "description": "记录 10 笔交易"
+      },
+      "pointsReward": 30
+    },
+    {
+      "id": "ach-tx-100",
+      "name": "记账达人",
+      "category": "saving",
+      "description": "记录 100 笔交易",
+      "icon": "📒",
+      "rarity": "rare",
+      "condition": {
+        "type": "transaction_count",
+        "target": 100,
+        "description": "记录 100 笔交易"
+      },
+      "pointsReward": 150
+    },
+    {
+      "id": "ach-tx-500",
+      "name": "记账大师",
+      "category": "saving",
+      "description": "记录 500 笔交易",
+      "icon": "📚",
+      "rarity": "epic",
+      "condition": {
+        "type": "transaction_count",
+        "target": 500,
+        "description": "记录 500 笔交易"
+      },
+      "pointsReward": 500
+    },
+    {
+      "id": "ach-surplus-1",
+      "name": "首次盈余",
+      "category": "budget",
+      "description": "单月收入大于支出",
+      "icon": "📈",
+      "rarity": "common",
+      "condition": {
+        "type": "monthly_surplus",
+        "target": 1,
+        "description": "单月收入大于支出"
+      },
+      "pointsReward": 80
+    },
+    {
+      "id": "ach-surplus-3",
+      "name": "持续盈余",
+      "category": "budget",
+      "description": "连续 3 个月收入大于支出",
+      "icon": "📊",
+      "rarity": "rare",
+      "condition": {
+        "type": "monthly_surplus",
+        "target": 3,
+        "description": "连续 3 个月收入大于支出"
+      },
+      "pointsReward": 200
+    },
+    {
+      "id": "ach-no-overspend-1",
+      "name": "预算达人",
+      "category": "budget",
+      "description": "整月没有超预算支出",
+      "icon": "✅",
+      "rarity": "rare",
+      "condition": {
+        "type": "no_overspend",
+        "target": 1,
+        "description": "整月没有超预算支出"
+      },
+      "pointsReward": 150
+    },
+    {
+      "id": "ach-recurring-1",
+      "name": "自动化开始",
+      "category": "budget",
+      "description": "创建第一个周期性账单",
+      "icon": "🔄",
+      "rarity": "common",
+      "condition": {
+        "type": "recurring_bill",
+        "target": 1,
+        "description": "创建第一个周期性账单"
+      },
+      "pointsReward": 50
+    },
+    {
+      "id": "ach-recurring-5",
+      "name": "自动化专家",
+      "category": "budget",
+      "description": "创建 5 个周期性账单",
+      "icon": "⚙️",
+      "rarity": "rare",
+      "condition": {
+        "type": "recurring_bill",
+        "target": 5,
+        "description": "创建 5 个周期性账单"
+      },
+      "pointsReward": 200
+    },
+    {
+      "id": "ach-wish-count-3",
+      "name": "梦想家",
+      "category": "wish",
+      "description": "同时有 3 个进行中的愿望",
+      "icon": "💫",
+      "rarity": "common",
+      "condition": {
+        "type": "wish_count",
+        "target": 3,
+        "description": "同时有 3 个进行中的愿望"
+      },
+      "pointsReward": 60
+    }
+  ]
+}

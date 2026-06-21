@@ -1,6 +1,6 @@
-import type { ExportData, SavingState, Transaction, Wish, Category } from '@/types'
+import type { ExportData, SavingState, Transaction, Wish, Category, AchievementState } from '@/types'
 
-const EXPORT_VERSION = '1.0.0'
+const EXPORT_VERSION = '1.1.0'
 
 function downloadCsv(csvContent: string, filename: string): void {
   const BOM = '\uFEFF'
@@ -136,8 +136,19 @@ export function exportWishesToCsv(wishes: Wish[]): void {
   downloadCsv(csv, `愿望清单-${date}.csv`)
 }
 
-export function exportToJson(state: SavingState): void {
+export function exportToJson(state: SavingState & Partial<AchievementState>): void {
   const exportData: ExportData = {
+    unlockedAchievements: [],
+    stats: {
+      totalIncome: 0,
+      totalTransactions: 0,
+      consecutiveDays: 0,
+      lastActiveDate: '',
+      wishesAchieved: 0,
+      decorationsOwned: 0,
+      monthsWithSurplus: 0,
+      consecutiveNoOverspend: 0,
+    },
     ...state,
     version: EXPORT_VERSION,
     exportedAt: new Date().toISOString(),
@@ -177,7 +188,7 @@ export function importFromJson(file: File): Promise<ExportData> {
 export function validateImportData(data: unknown): data is ExportData {
   if (typeof data !== 'object' || data === null) return false
   const d = data as Record<string, unknown>
-  return (
+  const baseValid =
     typeof d.balance === 'number' &&
     typeof d.points === 'number' &&
     Array.isArray(d.transactions) &&
@@ -187,5 +198,16 @@ export function validateImportData(data: unknown): data is ExportData {
     d.activeDecorations !== null &&
     Array.isArray(d.recurringBills) &&
     Array.isArray(d.budgets)
-  )
+
+  if (!baseValid) return false
+
+  if (d.unlockedAchievements !== undefined && !Array.isArray(d.unlockedAchievements)) {
+    return false
+  }
+
+  if (d.stats !== undefined && (typeof d.stats !== 'object' || d.stats === null)) {
+    return false
+  }
+
+  return true
 }

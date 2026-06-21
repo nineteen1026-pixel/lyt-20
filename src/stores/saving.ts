@@ -11,10 +11,12 @@ import type {
   RecurringBill,
   RecurrenceCycle,
   CategoryBudget,
+  Achievement,
 } from '@/types'
 import { saveToStorage, loadFromStorage } from '@/utils/storage'
 import { validateImportData } from '@/utils/export'
 import { useCategories } from '@/composables/useCategories'
+import { useAchievements } from '@/composables/useAchievements'
 
 export interface SavingEvent {
   type: 'income' | 'expense' | 'decoration' | 'milestone' | 'wish'
@@ -58,6 +60,9 @@ export const useSavingStore = defineStore('saving', () => {
   const recentEvents = ref<SavingEvent[]>([])
   const recentlyUpdatedDecoration = ref<string | null>(null)
   const pointsAnimation = ref({ show: false, amount: 0, startX: 0, startY: 0 })
+  const newlyUnlockedAchievements = ref<Achievement[]>([])
+  const showAchievementNotification = ref(false)
+  const currentNotificationAchievement = ref<Achievement | null>(null)
 
   const monthlyIncome = computed(() => {
     const now = new Date()
@@ -547,6 +552,11 @@ export const useSavingStore = defineStore('saving', () => {
       type: 'wish',
       message: `🔄 新增周期性账单「${name}」，${cycle === 'daily' ? '每天' : cycle === 'weekly' ? '每周' : cycle === 'monthly' ? '每月' : '每年'} ¥${amount}`,
     })
+
+    setTimeout(() => {
+      checkAndTriggerAchievements()
+    }, 100)
+
     return bill
   }
 
@@ -685,6 +695,105 @@ export const useSavingStore = defineStore('saving', () => {
     }, 10)
   }
 
+  function getAchievementStats() {
+    const totalIncome = transactions.value
+      .filter((t) => t.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0)
+
+    const achievedWishes = wishes.value.filter((w) => w.currentAmount >= w.targetAmount).length
+    const activeWishes = wishes.value.filter((w) => w.currentAmount < w.targetAmount).length
+
+    const now = new Date()
+    let monthsWithSurplus = 0
+    for (let i = 0; i < 12; i++) {
+      const checkDate = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const monthKey = `${checkDate.getFullYear()}-${String(checkDate.getMonth() + 1).padStart(2, '0')}`
+      const monthIncome = transactions.value
+        .filter((t) => t.type === 'income' && t.date.startsWith(monthKey))
+        .reduce((sum, t) => sum + t.amount, 0)
+      const monthExpense = transactions.value
+        .filter((t) => t.type === 'expense' && t.date.startsWith(monthKey))
+        .reduce((sum, t) => sum + t.amount, 0)
+      if (monthIncome > monthExpense && monthIncome > 0) {
+        monthsWithSurplus++
+      } else if (monthIncome > 0 || monthExpense > 0) {
+        break
+      }
+    }
+
+    let consecutiveNoOverspend = 0
+    if (budgets.value.length > 0) {
+      for (let i = 0; i < 12; i++) {
+        const checkDate = new Date(now.getFullYear(), now.getMonth() - i, 1)
+        const monthKey = `${checkDate.getFullYear()}-${String(checkDate.getMonth() + 1).padStart(2, '0')}`
+        let hasOverspend = false
+        for (const budget of budgets.value) {
+          const used = getMonthlyAmountByCategory(budget.categoryId, 'expense')
+          if (used > budget.amount) {
+            hasOverspend = true
+            break
+          }
+        }
+        if (!hasOverspend) {
+          consecutiveNoOverspend++
+        } else {
+          break
+        }
+      }
+    }
+
+    const recurringCount = recurringBills.value.filter((b) => b.isActive).length
+
+    return {
+      totalIncome,
+      totalTransactions: transactions.value.length,
+      wishesAchieved: achievedWishes,
+      decorationsOwned: ownedDecorations.value.length,
+      monthsWithSurplus,
+      consecutiveNoOverspend,
+    }
+  }
+
+  function checkAndTriggerAchievements() {
+    const achievements = useAchievements()
+    if (!achievements.loaded.value) return
+
+    const stats = getAchievementStats()
+    const newlyUnlocked = achievements.checkAchievements(stats)
+
+    if (newlyUnlocked.length > 0) {
+      newlyUnlockedAchievements.value.push(...newlyUnlocked)
+      for (const achievement of newlyUnlocked) {
+        points.value += achievement.pointsReward
+        addEvent({
+          type: 'milestone',
+          message: `🏆 解锁成就「${achievement.name}」！奖励积分 +${achievement.pointsReward}`,
+        })
+      }
+      showNextAchievementNotification()
+    }
+  }
+
+  function showNextAchievementNotification() {
+    if (newlyUnlockedAchievements.value.length > 0 && !showAchievementNotification.value) {
+      currentNotificationAchievement.value = newlyUnlockedAchievements.value[0]
+      showAchievementNotification.value = true
+    }
+  }
+
+  function dismissAchievementNotification() {
+    if (currentNotificationAchievement.value) {
+      const achievements = useAchievements()
+      achievements.markAsDisplayed(currentNotificationAchievement.value.id)
+      newlyUnlockedAchievements.value.shift()
+    }
+    showAchievementNotification.value = false
+    currentNotificationAchievement.value = null
+    setTimeout(() => {
+      showNextAchievementNotification()
+    }, 300)
+  }
+
   function addTransaction(type: TransactionType, amount: number, categoryId: string, note: string, x = 0, y = 0, date?: string) {
     const oldPoints = points.value
     const transaction: Transaction = {
@@ -715,6 +824,10 @@ export const useSavingStore = defineStore('saving', () => {
         message: `💸 支出 ¥${amount}`,
       })
     }
+
+    setTimeout(() => {
+      checkAndTriggerAchievements()
+    }, 100)
   }
 
   function deleteTransaction(id: string) {
@@ -754,6 +867,10 @@ export const useSavingStore = defineStore('saving', () => {
       type: 'wish',
       message: `🌟 新愿望「${name}」已添加，目标 ¥${targetAmount}`,
     })
+
+    setTimeout(() => {
+      checkAndTriggerAchievements()
+    }, 100)
   }
 
   function getDaysUntilDeadline(deadline?: string): number | null {
@@ -839,6 +956,10 @@ export const useSavingStore = defineStore('saving', () => {
         message: `🎊 愿望「${wish.name}」已达成！`,
       })
     }
+
+    setTimeout(() => {
+      checkAndTriggerAchievements()
+    }, 100)
   }
 
   function withdrawFromWish(id: string, amount: number) {
@@ -875,6 +996,10 @@ export const useSavingStore = defineStore('saving', () => {
     setTimeout(() => {
       recentlyUpdatedDecoration.value = null
     }, 3000)
+
+    setTimeout(() => {
+      checkAndTriggerAchievements()
+    }, 100)
 
     return true
   }
@@ -932,6 +1057,14 @@ export const useSavingStore = defineStore('saving', () => {
     if (Array.isArray(data.recurringBills)) recurringBills.value = data.recurringBills
     if (typeof data.lastRecurringCheckDate === 'string') lastRecurringCheckDate.value = data.lastRecurringCheckDate
     if (Array.isArray(data.budgets)) budgets.value = data.budgets
+
+    if (data.unlockedAchievements || data.stats) {
+      const achievements = useAchievements()
+      achievements.loadAchievementState({
+        unlockedAchievements: data.unlockedAchievements,
+        stats: data.stats,
+      })
+    }
   }
 
   function importData(data: ExportData): boolean {
@@ -941,6 +1074,9 @@ export const useSavingStore = defineStore('saving', () => {
   }
 
   function getExportState(): ExportData {
+    const achievements = useAchievements()
+    const achievementState = achievements.getAchievementState()
+
     return {
       balance: balance.value,
       points: points.value,
@@ -952,23 +1088,31 @@ export const useSavingStore = defineStore('saving', () => {
       recurringBills: recurringBills.value,
       lastRecurringCheckDate: lastRecurringCheckDate.value,
       budgets: budgets.value,
-      version: '1.0.0',
+      unlockedAchievements: achievementState.unlockedAchievements,
+      stats: achievementState.stats,
+      version: '1.1.0',
       exportedAt: new Date().toISOString(),
     }
   }
 
-  const storeState = computed(() => ({
-    balance: balance.value,
-    points: points.value,
-    transactions: transactions.value,
-    wishes: wishes.value,
-    ownedDecorations: ownedDecorations.value,
-    activeDecorations: activeDecorations.value,
-    lastMilestone: lastMilestone.value,
-    recurringBills: recurringBills.value,
-    lastRecurringCheckDate: lastRecurringCheckDate.value,
-    budgets: budgets.value,
-  }))
+  const storeState = computed(() => {
+    const achievements = useAchievements()
+    const achievementState = achievements.getAchievementState()
+    return {
+      balance: balance.value,
+      points: points.value,
+      transactions: transactions.value,
+      wishes: wishes.value,
+      ownedDecorations: ownedDecorations.value,
+      activeDecorations: activeDecorations.value,
+      lastMilestone: lastMilestone.value,
+      recurringBills: recurringBills.value,
+      lastRecurringCheckDate: lastRecurringCheckDate.value,
+      budgets: budgets.value,
+      unlockedAchievements: achievementState.unlockedAchievements,
+      stats: achievementState.stats,
+    }
+  })
 
   watch(
     storeState,
@@ -999,6 +1143,11 @@ export const useSavingStore = defineStore('saving', () => {
     recentEvents,
     recentlyUpdatedDecoration,
     pointsAnimation,
+    newlyUnlockedAchievements,
+    showAchievementNotification,
+    currentNotificationAchievement,
+    dismissAchievementNotification,
+    checkAndTriggerAchievements,
     monthlyIncome,
     monthlyExpense,
     nextMilestone,

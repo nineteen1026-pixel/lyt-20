@@ -111,5 +111,16 @@
     "wallpaper": "wp-plain-warm",
     "floor": "fl-wood-light",
     "items": ["item-plant-small"]
+  },
+  "unlockedAchievements": [],
+  "stats": {
+    "totalIncome": 0,
+    "totalTransactions": 0,
+    "consecutiveDays": 0,
+    "lastActiveDate": "",
+    "wishesAchieved": 0,
+    "decorationsOwned": 0,
+    "monthsWithSurplus": 0,
+    "consecutiveNoOverspend": 0
   }
 }

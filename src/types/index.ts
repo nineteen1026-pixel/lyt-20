@@ -98,7 +98,73 @@ export interface SavingState {
   budgets: CategoryBudget[]
 }
 
-export interface ExportData extends SavingState {
+export type AchievementCategory = 'saving' | 'milestone' | 'consistency' | 'wish' | 'decoration' | 'budget'
+
+export type AchievementConditionType =
+  | 'first_income'
+  | 'total_savings'
+  | 'milestone_reached'
+  | 'consecutive_days'
+  | 'wish_achieved'
+  | 'wish_count'
+  | 'decoration_count'
+  | 'budget_strict'
+  | 'transaction_count'
+  | 'monthly_surplus'
+  | 'no_overspend'
+  | 'recurring_bill'
+
+export interface AchievementCondition {
+  type: AchievementConditionType
+  target: number
+  description: string
+}
+
+export interface Achievement {
+  id: string
+  name: string
+  category: AchievementCategory
+  description: string
+  icon: string
+  rarity: 'common' | 'rare' | 'epic' | 'legendary'
+  condition: AchievementCondition
+  pointsReward: number
+}
+
+export interface UnlockedAchievement {
+  achievementId: string
+  unlockedAt: string
+  displayed: boolean
+}
+
+export interface AchievementState {
+  unlockedAchievements: UnlockedAchievement[]
+  stats: {
+    totalIncome: number
+    totalTransactions: number
+    consecutiveDays: number
+    lastActiveDate: string
+    wishesAchieved: number
+    decorationsOwned: number
+    monthsWithSurplus: number
+    consecutiveNoOverspend: number
+  }
+}
+
+export interface SavingState {
+  balance: number
+  points: number
+  transactions: Transaction[]
+  wishes: Wish[]
+  ownedDecorations: string[]
+  activeDecorations: ActiveDecorations
+  lastMilestone: number
+  recurringBills: RecurringBill[]
+  lastRecurringCheckDate: string
+  budgets: CategoryBudget[]
+}
+
+export interface ExportData extends SavingState, AchievementState {
   version: string
   exportedAt: string
 }
