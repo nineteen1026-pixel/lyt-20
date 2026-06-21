@@ -1,0 +1,109 @@
+{
+  "balance": 1280,
+  "points": 520,
+  "transactions": [
+    {
+      "id": "t1",
+      "type": "income",
+      "amount": 5000,
+      "categoryId": "inc-salary",
+      "note": "6月工资",
+      "date": "2026-06-01"
+    },
+    {
+      "id": "t2",
+      "type": "expense",
+      "amount": 1280,
+      "categoryId": "exp-food",
+      "note": "超市采购",
+      "date": "2026-06-05"
+    },
+    {
+      "id": "t3",
+      "type": "expense",
+      "amount": 300,
+      "categoryId": "exp-transport",
+      "note": "地铁充值",
+      "date": "2026-06-08"
+    },
+    {
+      "id": "t4",
+      "type": "expense",
+      "amount": 450,
+      "categoryId": "exp-shopping",
+      "note": "新衣服",
+      "date": "2026-06-10"
+    },
+    {
+      "id": "t5",
+      "type": "income",
+      "amount": 800,
+      "categoryId": "inc-bonus",
+      "note": "项目奖金",
+      "date": "2026-06-12"
+    },
+    {
+      "id": "t6",
+      "type": "expense",
+      "amount": 120,
+      "categoryId": "exp-coffee",
+      "note": "每周咖啡",
+      "date": "2026-06-15"
+    },
+    {
+      "id": "t7",
+      "type": "expense",
+      "amount": 200,
+      "categoryId": "exp-entertainment",
+      "note": "电影票",
+      "date": "2026-06-18"
+    },
+    {
+      "id": "t8",
+      "type": "expense",
+      "amount": 150,
+      "categoryId": "exp-health",
+      "note": "体检",
+      "date": "2026-06-20"
+    }
+  ],
+  "wishes": [
+    {
+      "id": "w1",
+      "name": "小钻戒",
+      "icon": "💍",
+      "targetAmount": 5000,
+      "currentAmount": 1500,
+      "category": "jewelry",
+      "createdAt": "2026-05-01"
+    },
+    {
+      "id": "w2",
+      "name": "京都之旅",
+      "icon": "✈️",
+      "targetAmount": 8000,
+      "currentAmount": 2000,
+      "category": "travel",
+      "createdAt": "2026-04-15"
+    },
+    {
+      "id": "w3",
+      "name": "新相机",
+      "icon": "📷",
+      "targetAmount": 3500,
+      "currentAmount": 800,
+      "category": "other",
+      "createdAt": "2026-05-20"
+    }
+  ],
+  "ownedDecorations": [
+    "wp-plain-warm",
+    "fl-wood-light",
+    "item-plant-small"
+  ],
+  "activeDecorations": {
+    "wallpaper": "wp-plain-warm",
+    "floor": "fl-wood-light",
+    "items": ["item-plant-small"]
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "income": [
+    { "id": "inc-salary", "name": "工资", "icon": "briefcase", "color": "#5AB37E" },
+    { "id": "inc-bonus", "name": "奖金", "icon": "gift", "color": "#FFCB42" },
+    { "id": "inc-invest", "name": "理财收益", "icon": "trending-up", "color": "#9C7DD4" },
+    { "id": "inc-parttime", "name": "兼职", "icon": "piggy-bank", "color": "#FF9B7B" },
+    { "id": "inc-other", "name": "其他收入", "icon": "plus-circle", "color": "#6BB5D6" }
+  ],
+  "expense": [
+    { "id": "exp-food", "name": "餐饮", "icon": "utensils", "color": "#FF9B7B" },
+    { "id": "exp-shopping", "name": "购物", "icon": "shopping-cart", "color": "#D4C1EC" },
+    { "id": "exp-transport", "name": "交通", "icon": "bus", "color": "#7CC49A" },
+    { "id": "exp-entertainment", "name": "娱乐", "icon": "gamepad-2", "color": "#FFCB42" },
+    { "id": "exp-coffee", "name": "咖啡", "icon": "coffee", "color": "#C2956E" },
+    { "id": "exp-health", "name": "健康", "icon": "heart", "color": "#FF6B9D" },
+    { "id": "exp-other", "name": "其他支出", "icon": "more-horizontal", "color": "#9CA3AF" }
+  ]
+}

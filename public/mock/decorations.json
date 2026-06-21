@@ -1,0 +1,224 @@
+{
+  "wallpapers": [
+    {
+      "id": "wp-plain-warm",
+      "name": "暖白墙面",
+      "type": "wallpaper",
+      "price": 0,
+      "style": {
+        "backgroundColor": "#FFF8F0"
+      }
+    },
+    {
+      "id": "wp-stripe-pink",
+      "name": "粉色条纹",
+      "type": "wallpaper",
+      "price": 50,
+      "style": {
+        "backgroundColor": "#FFE8D6",
+        "pattern": "stripe-pink"
+      }
+    },
+    {
+      "id": "wp-dots-mint",
+      "name": "薄荷波点",
+      "type": "wallpaper",
+      "price": 80,
+      "style": {
+        "backgroundColor": "#E0F2E9",
+        "pattern": "dots-mint"
+      }
+    },
+    {
+      "id": "wp-flower-soft",
+      "name": "小碎花",
+      "type": "wallpaper",
+      "price": 120,
+      "style": {
+        "backgroundColor": "#FFF0F5",
+        "pattern": "flower-soft"
+      }
+    },
+    {
+      "id": "wp-gradient-sunset",
+      "name": "落日渐变",
+      "type": "wallpaper",
+      "price": 150,
+      "style": {
+        "gradient": "linear-gradient(180deg, #FFD4B8 0%, #FFB88C 50%, #FF9B7B 100%)"
+      }
+    },
+    {
+      "id": "wp-cloud-sky",
+      "name": "云朵天空",
+      "type": "wallpaper",
+      "price": 200,
+      "style": {
+        "backgroundColor": "#E0F4FF",
+        "pattern": "cloud-sky"
+      }
+    }
+  ],
+  "floors": [
+    {
+      "id": "fl-wood-light",
+      "name": "浅木地板",
+      "type": "floor",
+      "price": 0,
+      "style": {
+        "backgroundColor": "#E8D5B7",
+        "pattern": "wood-light"
+      }
+    },
+    {
+      "id": "fl-wood-warm",
+      "name": "暖木地板",
+      "type": "floor",
+      "price": 60,
+      "style": {
+        "backgroundColor": "#D4A574",
+        "pattern": "wood-warm"
+      }
+    },
+    {
+      "id": "fl-tile-white",
+      "name": "白色瓷砖",
+      "type": "floor",
+      "price": 80,
+      "style": {
+        "backgroundColor": "#F5F5F5",
+        "pattern": "tile-white"
+      }
+    },
+    {
+      "id": "fl-rug-cozy",
+      "name": "毛绒地毯",
+      "type": "floor",
+      "price": 100,
+      "style": {
+        "backgroundColor": "#F0E6DD",
+        "pattern": "rug-cozy"
+      }
+    },
+    {
+      "id": "fl-marble",
+      "name": "大理石纹",
+      "type": "floor",
+      "price": 180,
+      "style": {
+        "backgroundColor": "#F0F0F0",
+        "pattern": "marble"
+      }
+    }
+  ],
+  "items": [
+    {
+      "id": "item-plant-small",
+      "name": "小盆栽",
+      "type": "item",
+      "price": 30,
+      "emoji": "🪴",
+      "position": { "x": 15, "y": 55 },
+      "size": { "width": 48, "height": 48 }
+    },
+    {
+      "id": "item-plant-big",
+      "name": "大叶绿植",
+      "type": "item",
+      "price": 80,
+      "emoji": "🌿",
+      "position": { "x": 75, "y": 50 },
+      "size": { "width": 60, "height": 70 }
+    },
+    {
+      "id": "item-lamp-table",
+      "name": "台灯",
+      "type": "item",
+      "price": 50,
+      "emoji": "💡",
+      "position": { "x": 65, "y": 45 },
+      "size": { "width": 40, "height": 50 }
+    },
+    {
+      "id": "item-painting",
+      "name": "装饰画",
+      "type": "item",
+      "price": 60,
+      "emoji": "🖼️",
+      "position": { "x": 40, "y": 18 },
+      "size": { "width": 56, "height": 44 }
+    },
+    {
+      "id": "item-bookshelf",
+      "name": "小书架",
+      "type": "item",
+      "price": 70,
+      "emoji": "📚",
+      "position": { "x": 8, "y": 35 },
+      "size": { "width": 44, "height": 70 }
+    },
+    {
+      "id": "item-cat",
+      "name": "小猫咪",
+      "type": "item",
+      "price": 200,
+      "emoji": "🐱",
+      "position": { "x": 50, "y": 75 },
+      "size": { "width": 50, "height": 45 }
+    },
+    {
+      "id": "item-coffee-machine",
+      "name": "咖啡机",
+      "type": "item",
+      "price": 90,
+      "emoji": "☕",
+      "position": { "x": 80, "y": 58 },
+      "size": { "width": 36, "height": 42 }
+    },
+    {
+      "id": "item-rug",
+      "name": "小圆毯",
+      "type": "item",
+      "price": 40,
+      "emoji": "⭕",
+      "position": { "x": 35, "y": 80 },
+      "size": { "width": 80, "height": 30 }
+    },
+    {
+      "id": "item-clock",
+      "name": "挂钟",
+      "type": "item",
+      "price": 45,
+      "emoji": "🕐",
+      "position": { "x": 75, "y": 15 },
+      "size": { "width": 36, "height": 36 }
+    },
+    {
+      "id": "item-cactus",
+      "name": "仙人掌",
+      "type": "item",
+      "price": 25,
+      "emoji": "🌵",
+      "position": { "x": 30, "y": 60 },
+      "size": { "width": 32, "height": 45 }
+    },
+    {
+      "id": "item-music-player",
+      "name": "唱片机",
+      "type": "item",
+      "price": 120,
+      "emoji": "🎵",
+      "position": { "x": 20, "y": 55 },
+      "size": { "width": 50, "height": 38 }
+    },
+    {
+      "id": "item-teddy-bear",
+      "name": "泰迪熊",
+      "type": "item",
+      "price": 55,
+      "emoji": "🧸",
+      "position": { "x": 55, "y": 65 },
+      "size": { "width": 40, "height": 50 }
+    }
+  ]
+}
