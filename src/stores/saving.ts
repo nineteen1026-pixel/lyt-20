@@ -302,6 +302,116 @@ export const useSavingStore = defineStore('saving', () => {
       .reduce((sum, bill) => sum + calculateMonthlyAmount(bill.amount, bill.cycle), 0)
   })
 
+  interface MonthlyTrendItem {
+    month: string
+    monthLabel: string
+    income: number
+    expense: number
+    balance: number
+  }
+
+  const monthlyTrend = computed<MonthlyTrendItem[]>(() => {
+    const months: Map<string, MonthlyTrendItem> = new Map()
+    const now = new Date()
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      months.set(key, {
+        month: key,
+        monthLabel: `${d.getMonth() + 1}月`,
+        income: 0,
+        expense: 0,
+        balance: 0,
+      })
+    }
+    for (const tx of transactions.value) {
+      const d = new Date(tx.date)
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      if (months.has(key)) {
+        const item = months.get(key)!
+        if (tx.type === 'income') {
+          item.income += tx.amount
+        } else {
+          item.expense += tx.amount
+        }
+        item.balance = item.income - item.expense
+      }
+    }
+    return Array.from(months.values())
+  })
+
+  interface CategoryStat {
+    categoryId: string
+    categoryName: string
+    categoryColor: string
+    categoryIcon: string
+    amount: number
+    percent: number
+    count: number
+  }
+
+  function getCategoryStats(type: TransactionType): CategoryStat[] {
+    const { getCategoryById } = useCategories()
+    const totalMap = new Map<string, CategoryStat>()
+    let totalAmount = 0
+    for (const tx of transactions.value) {
+      if (tx.type !== type) continue
+      const cat = getCategoryById(tx.categoryId)
+      if (!totalMap.has(tx.categoryId)) {
+        totalMap.set(tx.categoryId, {
+          categoryId: tx.categoryId,
+          categoryName: cat?.name || '其他',
+          categoryColor: cat?.color || '#9CA3AF',
+          categoryIcon: cat?.icon || '',
+          amount: 0,
+          percent: 0,
+          count: 0,
+        })
+      }
+      const stat = totalMap.get(tx.categoryId)!
+      stat.amount += tx.amount
+      stat.count += 1
+      totalAmount += tx.amount
+    }
+    const result = Array.from(totalMap.values())
+    for (const stat of result) {
+      stat.percent = totalAmount > 0 ? (stat.amount / totalAmount) * 100 : 0
+    }
+    return result.sort((a, b) => b.amount - a.amount)
+  }
+
+  const expenseCategoryStats = computed(() => getCategoryStats('expense'))
+  const incomeCategoryStats = computed(() => getCategoryStats('income'))
+
+  interface WishStats {
+    totalCount: number
+    achievedCount: number
+    inProgressCount: number
+    achievedRate: number
+    totalTargetAmount: number
+    totalCurrentAmount: number
+    overallProgress: number
+  }
+
+  const wishStats = computed<WishStats>(() => {
+    const totalCount = wishes.value.length
+    const achievedCount = wishes.value.filter(w => w.currentAmount >= w.targetAmount).length
+    const inProgressCount = totalCount - achievedCount
+    const totalTargetAmount = wishes.value.reduce((s, w) => s + w.targetAmount, 0)
+    const totalCurrentAmount = wishes.value.reduce((s, w) => s + w.currentAmount, 0)
+    const overallProgress = totalTargetAmount > 0 ? (totalCurrentAmount / totalTargetAmount) * 100 : 0
+    const achievedRate = totalCount > 0 ? (achievedCount / totalCount) * 100 : 0
+    return {
+      totalCount,
+      achievedCount,
+      inProgressCount,
+      achievedRate,
+      totalTargetAmount,
+      totalCurrentAmount,
+      overallProgress,
+    }
+  })
+
   interface CategoryRecurringStats {
     categoryId: string
     bills: RecurringBill[]
@@ -881,6 +991,11 @@ export const useSavingStore = defineStore('saving', () => {
     totalBudgetedExpense,
     totalBudgetedIncome,
     totalBudgetUsed,
+    monthlyTrend,
+    expenseCategoryStats,
+    incomeCategoryStats,
+    getCategoryStats,
+    wishStats,
     calculateMonthlyAmount,
     addTransaction,
     deleteTransaction,

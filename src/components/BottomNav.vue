@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { Wallet, Star, Paintbrush, Plus, Repeat } from 'lucide-vue-next'
+import { Wallet, Star, Paintbrush, Plus, Repeat, BarChart3 } from 'lucide-vue-next'
 
 interface Props {
-  activeTab: 'account' | 'recurring' | 'wish' | 'workshop'
+  activeTab: 'account' | 'recurring' | 'wish' | 'workshop' | 'report'
   overdueCount?: number
 }
 
 defineProps<Props>()
 
 const emit = defineEmits<{
-  (e: 'update:activeTab', value: 'account' | 'recurring' | 'wish' | 'workshop'): void
+  (e: 'update:activeTab', value: 'account' | 'recurring' | 'wish' | 'workshop' | 'report'): void
   (e: 'add-transaction'): void
 }>()
 
@@ -19,6 +19,7 @@ const leftTabs = [
 ] as const
 
 const rightTabs = [
+  { key: 'report', label: '报表', icon: BarChart3 },
   { key: 'wish', label: '愿望清单', icon: Star },
   { key: 'workshop', label: '装修工坊', icon: Paintbrush },
 ] as const

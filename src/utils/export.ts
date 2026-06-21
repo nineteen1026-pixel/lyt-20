@@ -1,6 +1,105 @@
-import type { ExportData, SavingState } from '@/types'
+import type { ExportData, SavingState, Transaction, Wish, Category } from '@/types'
 
 const EXPORT_VERSION = '1.0.0'
+
+function downloadCsv(csvContent: string, filename: string): void {
+  const BOM = '\uFEFF'
+  const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+interface ReportExportOptions {
+  getCategoryById?: (id: string) => Category | undefined
+}
+
+export function exportTransactionsToCsv(
+  transactions: Transaction[],
+  options: ReportExportOptions = {}
+): void {
+  const headers = ['日期', '类型', '分类', '金额', '备注']
+  const rows = transactions.map((tx) => {
+    const cat = options.getCategoryById?.(tx.categoryId)
+    return [
+      tx.date,
+      tx.type === 'income' ? '收入' : '支出',
+      cat?.name || '其他',
+      tx.amount.toFixed(2),
+      tx.note || '',
+    ]
+  })
+  const csv = [headers, ...rows].map((row) =>
+    row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+  ).join('\n')
+  const date = new Date().toISOString().split('T')[0]
+  downloadCsv(csv, `交易记录-${date}.csv`)
+}
+
+export function exportMonthlyReportToCsv(
+  monthlyTrend: { month: string; monthLabel: string; income: number; expense: number; balance: number }[],
+  expenseStats: { categoryName: string; amount: number; percent: number; count: number }[],
+  incomeStats: { categoryName: string; amount: number; percent: number; count: number }[]
+): void {
+  const lines: string[] = []
+  lines.push('月度收支趋势')
+  lines.push(['月份', '收入', '支出', '结余'].map((c) => `"${c}"`).join(','))
+  for (const m of monthlyTrend) {
+    lines.push([m.monthLabel, m.income.toFixed(2), m.expense.toFixed(2), m.balance.toFixed(2)].map((c) => `"${c}"`).join(','))
+  }
+  lines.push('')
+  lines.push('支出分类统计')
+  lines.push(['分类', '金额', '占比(%)', '笔数'].map((c) => `"${c}"`).join(','))
+  for (const s of expenseStats) {
+    lines.push([s.categoryName, s.amount.toFixed(2), s.percent.toFixed(2), String(s.count)].map((c) => `"${c}"`).join(','))
+  }
+  lines.push('')
+  lines.push('收入分类统计')
+  lines.push(['分类', '金额', '占比(%)', '笔数'].map((c) => `"${c}"`).join(','))
+  for (const s of incomeStats) {
+    lines.push([s.categoryName, s.amount.toFixed(2), s.percent.toFixed(2), String(s.count)].map((c) => `"${c}"`).join(','))
+  }
+  const date = new Date().toISOString().split('T')[0]
+  downloadCsv(lines.join('\n'), `月度报表-${date}.csv`)
+}
+
+export function exportWishesToCsv(wishes: Wish[]): void {
+  const headers = ['愿望名称', '分类', '目标金额', '已存金额', '进度(%)', '优先级', '创建日期', '截止日期']
+  const categoryMap: Record<string, string> = {
+    jewelry: '首饰',
+    travel: '旅行',
+    other: '其他',
+  }
+  const priorityMap: Record<string, string> = {
+    low: '低',
+    medium: '中',
+    high: '高',
+    urgent: '紧急',
+  }
+  const rows = wishes.map((w) => {
+    const progress = w.targetAmount > 0 ? (w.currentAmount / w.targetAmount) * 100 : 0
+    return [
+      w.name,
+      categoryMap[w.category] || '其他',
+      w.targetAmount.toFixed(2),
+      w.currentAmount.toFixed(2),
+      progress.toFixed(2),
+      priorityMap[w.priority || 'medium'] || '中',
+      w.createdAt,
+      w.deadline || '',
+    ]
+  })
+  const csv = [headers, ...rows].map((row) =>
+    row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+  ).join('\n')
+  const date = new Date().toISOString().split('T')[0]
+  downloadCsv(csv, `愿望清单-${date}.csv`)
+}
 
 export function exportToJson(state: SavingState): void {
   const exportData: ExportData = {
