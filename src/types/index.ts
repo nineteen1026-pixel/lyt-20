@@ -8,6 +8,12 @@ export interface Category {
   icon: string
 }
 
+export interface CategoryBudget {
+  categoryId: string
+  amount: number
+  lastNotifiedOverspendMonth?: string
+}
+
 export interface Transaction {
   id: string
   type: TransactionType
@@ -85,6 +91,7 @@ export interface SavingState {
   lastMilestone: number
   recurringBills: RecurringBill[]
   lastRecurringCheckDate: string
+  budgets: CategoryBudget[]
 }
 
 export interface ExportData extends SavingState {

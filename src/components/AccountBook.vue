@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { Trash2, Plus, Minus, Repeat, ChevronDown, ChevronUp, Calendar } from 'lucide-vue-next'
+import { Trash2, Plus, Minus, Repeat, ChevronDown, ChevronUp, Calendar, Target, X, Edit3, AlertTriangle } from 'lucide-vue-next'
 import { useSavingStore } from '@/stores/saving'
 import { useCategories } from '@/composables/useCategories'
 import { getIconComponent } from '@/utils/iconMap'
@@ -15,10 +15,65 @@ const { getCategoryById, getCategoriesByType } = useCategories()
 
 const showAddModal = ref(false)
 const showRecurringDetail = ref(false)
+const showBudgetModal = ref(false)
 const newTxType = ref<TransactionType>('expense')
 const newTxAmount = ref('')
 const newTxCategory = ref('')
 const newTxNote = ref('')
+
+const showBudgetDetail = ref(false)
+const editingBudgetCategoryId = ref<string | null>(null)
+const editingBudgetAmount = ref('')
+
+const sortedBudgetStats = computed(() => {
+  return [...store.budgetStats].sort((a, b) => {
+    if (a.isOverspent && !b.isOverspent) return -1
+    if (!a.isOverspent && b.isOverspent) return 1
+    if (a.isNearOverspent && !b.isNearOverspent) return -1
+    if (!a.isNearOverspent && b.isNearOverspent) return 1
+    return b.usedPercent - a.usedPercent
+  })
+})
+
+function openBudgetModal(categoryId?: string) {
+  if (categoryId) {
+    editingBudgetCategoryId.value = categoryId
+    const existing = store.getBudgetByCategory(categoryId)
+    editingBudgetAmount.value = existing ? existing.amount.toString() : ''
+  } else {
+    const expenseCats = getCategoriesByType('expense')
+    const budgetedIds = new Set(store.budgets.map((b) => b.categoryId))
+    const firstUnbudgeted = expenseCats.find((c) => !budgetedIds.has(c.id))
+    editingBudgetCategoryId.value = firstUnbudgeted?.id || expenseCats[0]?.id || ''
+    editingBudgetAmount.value = ''
+  }
+  showBudgetModal.value = true
+}
+
+function closeBudgetModal() {
+  showBudgetModal.value = false
+  editingBudgetCategoryId.value = null
+  editingBudgetAmount.value = ''
+}
+
+function saveBudget() {
+  if (!editingBudgetCategoryId.value) return
+  const amount = parseFloat(editingBudgetAmount.value)
+  store.setBudget(editingBudgetCategoryId.value, isNaN(amount) ? 0 : amount)
+  closeBudgetModal()
+}
+
+function handleRemoveBudget(categoryId: string) {
+  const cat = getCategoryById(categoryId)
+  if (confirm(`确定要移除「${cat?.name || '该分类'}」的月度预算吗？`)) {
+    store.removeBudget(categoryId)
+  }
+}
+
+const expenseCategoriesWithoutBudget = computed(() => {
+  const budgetedIds = new Set(store.budgets.map((b) => b.categoryId))
+  return getCategoriesByType('expense').filter((c) => !budgetedIds.has(c.id))
+})
 
 const expenseRecurringStats = computed(() => {
   const categoriesMap = new Map<string, {
@@ -114,6 +169,7 @@ function handleAdd(event?: MouseEvent) {
   const rect = (event?.target as HTMLElement)?.getBoundingClientRect()
   const x = rect ? rect.left + rect.width / 2 : 0
   const y = rect ? rect.top + rect.height / 2 : 0
+  const categoryName = getCategoryById(newTxCategory.value)?.name || '其他'
   store.addTransaction(
     newTxType.value,
     amount,
@@ -122,6 +178,9 @@ function handleAdd(event?: MouseEvent) {
     x,
     y
   )
+  if (newTxType.value === 'expense') {
+    store.checkAndNotifyBudgetOverspent(newTxCategory.value, categoryName)
+  }
   showAddModal.value = false
 }
 
@@ -146,6 +205,155 @@ function handleDelete(id: string) {
       <div class="bg-white rounded-2xl p-3.5 text-center shadow-softer">
         <div class="text-xs text-gray-400 mb-1">结余</div>
         <div class="text-base font-bold text-lavender-500">¥{{ (store.monthlyIncome - store.monthlyExpense).toFixed(0) }}</div>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-2xl p-4 mb-4 shadow-softer">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center">
+            <Target :size="18" class="text-amber-500" />
+          </div>
+          <span class="text-sm font-bold text-gray-700">月度预算</span>
+          <span
+            v-if="store.budgets.length > 0"
+            class="text-[10px] px-2 py-0.5 rounded-full font-medium"
+            :class="store.hasOverspentBudgets ? 'bg-red-100 text-red-600' : 'bg-amber-50 text-amber-600'"
+          >
+            {{ store.budgets.length }} 个分类
+          </span>
+          <span
+            v-if="store.hasOverspentBudgets"
+            class="text-[10px] px-2 py-0.5 bg-red-500 text-white rounded-full font-medium flex items-center gap-1 animate-pulse"
+          >
+            <AlertTriangle :size="10" />
+            {{ store.overspentBudgets.length }} 超支
+          </span>
+        </div>
+        <button
+          class="text-xs font-semibold text-amber-600 bg-amber-50 hover:bg-amber-100 px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1"
+          @click="openBudgetModal()"
+        >
+          <Plus :size="12" />
+          <span v-if="store.budgets.length === 0">设置预算</span>
+          <span v-else>管理</span>
+        </button>
+      </div>
+
+      <div v-if="store.budgets.length === 0" class="text-center py-5 px-4">
+        <div class="text-3xl mb-2">🎯</div>
+        <div class="text-sm text-gray-500 mb-3">还没有设置预算，合理规划每一笔支出</div>
+        <button
+          class="text-sm font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-2 rounded-xl shadow-sm hover:shadow-md transition-all active:scale-95"
+          @click="openBudgetModal()"
+        >
+          立即设置
+        </button>
+      </div>
+
+      <div v-else class="space-y-3">
+        <div
+          v-for="stat in sortedBudgetStats"
+          :key="stat.categoryId"
+          class="p-3 rounded-xl transition-all duration-200"
+          :class="{
+            'bg-red-50 border border-red-100': stat.isOverspent,
+            'bg-amber-50 border border-amber-100': stat.isNearOverspent && !stat.isOverspent,
+            'bg-gray-50': !stat.isOverspent && !stat.isNearOverspent,
+          }"
+        >
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2 min-w-0">
+              <div
+                class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                :style="{
+                  backgroundColor: (getCategoryById(stat.categoryId)?.color || '#9CA3AF') + '20',
+                  color: getCategoryById(stat.categoryId)?.color || '#9CA3AF',
+                }"
+              >
+                <component
+                  v-if="getIconComponent(getCategoryById(stat.categoryId)?.icon || '')"
+                  :is="getIconComponent(getCategoryById(stat.categoryId)?.icon || '')"
+                  :size="16"
+                />
+                <span v-else class="text-sm">📌</span>
+              </div>
+              <div class="min-w-0">
+                <div
+                  class="text-sm font-semibold truncate"
+                  :class="{
+                    'text-red-600': stat.isOverspent,
+                    'text-amber-700': stat.isNearOverspent && !stat.isOverspent,
+                    'text-gray-700': !stat.isOverspent && !stat.isNearOverspent,
+                  }"
+                >
+                  {{ getCategoryById(stat.categoryId)?.name || '其他' }}
+                </div>
+                <div class="text-[10px] text-gray-400">
+                  已用 ¥{{ stat.usedAmount.toFixed(0) }} / 预算 ¥{{ stat.budgetAmount.toFixed(0) }}
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5 flex-shrink-0">
+              <div class="text-right">
+                <div
+                  class="text-xs font-bold"
+                  :class="{
+                    'text-red-600': stat.isOverspent,
+                    'text-amber-600': stat.isNearOverspent && !stat.isOverspent,
+                    'text-gray-600': !stat.isOverspent && !stat.isNearOverspent,
+                  }"
+                >
+                  {{ stat.usedPercent.toFixed(0) }}%
+                </div>
+                <div
+                  v-if="stat.isOverspent"
+                  class="text-[10px] font-medium text-red-500"
+                >
+                  超 ¥{{ (stat.usedAmount - stat.budgetAmount).toFixed(0) }}
+                </div>
+                <div
+                  v-else
+                  class="text-[10px] font-medium"
+                  :class="stat.isNearOverspent ? 'text-amber-600' : 'text-gray-400'"
+                >
+                  剩 ¥{{ stat.remainingAmount.toFixed(0) }}
+                </div>
+              </div>
+              <button
+                class="w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:bg-white/60"
+                :class="stat.isOverspent ? 'text-red-400' : stat.isNearOverspent ? 'text-amber-400' : 'text-gray-400'"
+                @click="openBudgetModal(stat.categoryId)"
+              >
+                <Edit3 :size="13" />
+              </button>
+            </div>
+          </div>
+          <div class="h-2 rounded-full overflow-hidden" :class="stat.isOverspent ? 'bg-red-100' : stat.isNearOverspent ? 'bg-amber-100' : 'bg-gray-200'">
+            <div
+              class="h-full rounded-full transition-all duration-500 ease-out"
+              :class="{
+                'bg-gradient-to-r from-red-400 to-red-500': stat.isOverspent,
+                'bg-gradient-to-r from-amber-400 to-amber-500': stat.isNearOverspent && !stat.isOverspent,
+                'bg-gradient-to-r from-lavender-400 to-lavender-500': !stat.isOverspent && !stat.isNearOverspent,
+              }"
+              :style="{ width: Math.min(stat.usedPercent, 100) + '%' }"
+            ></div>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-between pt-1 px-1">
+          <div class="text-[11px] text-gray-400">
+            总预算 ¥{{ store.totalBudgetedExpense.toFixed(0) }} · 已用 ¥{{ store.totalBudgetUsed.toFixed(0) }}
+          </div>
+          <button
+            v-if="expenseCategoriesWithoutBudget.length > 0"
+            class="text-[11px] font-medium text-lavender-600 bg-lavender-50 hover:bg-lavender-100 px-2.5 py-1 rounded-lg transition-colors"
+            @click="openBudgetModal()"
+          >
+            + 添加分类
+          </button>
+        </div>
       </div>
     </div>
 
@@ -362,6 +570,106 @@ function handleDelete(id: string) {
         >
           确认
         </button>
+      </div>
+    </div>
+
+    <div v-if="showBudgetModal" class="fixed inset-0 bg-black/40 z-[1000] flex items-end justify-center animate-[fadeIn_0.2s_ease]" @click.self="closeBudgetModal">
+      <div class="w-full max-w-[480px] bg-white rounded-t-[24px] p-5 animate-[slideUp_0.3s_cubic-bezier(0.34,1.56,0.64,1)]">
+        <div class="flex items-center justify-between mb-5">
+          <div class="flex items-center gap-2">
+            <div class="w-8 h-8 bg-amber-50 rounded-lg flex items-center justify-center">
+              <Target :size="18" class="text-amber-500" />
+            </div>
+            <h3 class="text-lg font-bold text-gray-700">
+              {{ editingBudgetCategoryId && store.getBudgetByCategory(editingBudgetCategoryId) ? '编辑预算' : '设置月度预算' }}
+            </h3>
+          </div>
+          <button class="w-8 h-8 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center hover:bg-gray-200 transition-colors" @click="closeBudgetModal">
+            <X :size="16" />
+          </button>
+        </div>
+
+        <div class="mb-5">
+          <label class="block text-xs font-semibold text-gray-500 mb-2.5">选择分类</label>
+          <div class="grid grid-cols-4 gap-2.5">
+            <button
+              v-for="cat in getCategoriesByType('expense')"
+              :key="cat.id"
+              class="flex flex-col items-center gap-1.5 py-3 px-1 rounded-xl transition-all duration-200 border-2"
+              :class="editingBudgetCategoryId === cat.id ? 'border-amber-400 bg-amber-50' : 'border-transparent bg-gray-50 hover:bg-gray-100'"
+              @click="editingBudgetCategoryId = cat.id"
+            >
+              <div
+                class="w-10 h-10 rounded-xl flex items-center justify-center"
+                :style="{ backgroundColor: cat.color + '20', color: cat.color }"
+              >
+                <component v-if="getIconComponent(cat.icon)" :is="getIconComponent(cat.icon)" :size="18" />
+                <span v-else class="text-base">📌</span>
+              </div>
+              <span class="text-[11px] font-semibold" :class="editingBudgetCategoryId === cat.id ? 'text-amber-600' : 'text-gray-500'">{{ cat.name }}</span>
+              <span
+                v-if="store.getBudgetByCategory(cat.id)"
+                class="text-[9px] px-1.5 py-0.5 bg-lavender-100 text-lavender-600 rounded-full font-medium"
+              >
+                ¥{{ store.getBudgetByCategory(cat.id)?.amount?.toFixed(0) }}
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <div class="mb-5">
+          <label class="block text-xs font-semibold text-gray-500 mb-2.5">月度预算上限（元）</label>
+          <div class="flex items-baseline gap-2 py-3.5 px-4 bg-gray-50 rounded-xl border-2 border-transparent focus-within:border-amber-400 transition-colors">
+            <span class="text-2xl font-bold text-gray-700">¥</span>
+            <input
+              v-model="editingBudgetAmount"
+              type="number"
+              placeholder="输入预算金额，如 1000"
+              autofocus
+              class="flex-1 text-2xl font-bold border-none bg-transparent outline-none text-gray-700 placeholder-gray-300"
+            />
+          </div>
+          <div v-if="editingBudgetCategoryId" class="mt-2.5 flex items-center gap-2 text-[11px] text-gray-400">
+            <span>当前已用：</span>
+            <span class="font-semibold text-gray-600">¥{{ store.getMonthlyExpenseByCategory(editingBudgetCategoryId).toFixed(0) }}</span>
+            <span v-if="editingBudgetAmount && parseFloat(editingBudgetAmount) > 0" class="text-gray-300">|</span>
+            <span v-if="editingBudgetAmount && parseFloat(editingBudgetAmount) > 0">
+              <span>剩余可用：</span>
+              <span
+                class="font-semibold"
+                :class="(parseFloat(editingBudgetAmount) || 0) - store.getMonthlyExpenseByCategory(editingBudgetCategoryId) < 0 ? 'text-red-500' : 'text-mint-600'"
+              >
+                ¥{{ Math.max(0, (parseFloat(editingBudgetAmount) || 0) - store.getMonthlyExpenseByCategory(editingBudgetCategoryId)).toFixed(0) }}
+              </span>
+            </span>
+          </div>
+        </div>
+
+        <div v-if="editingBudgetCategoryId && store.getBudgetByCategory(editingBudgetCategoryId)" class="mb-5">
+          <button
+            class="w-full py-2.5 text-sm font-semibold text-red-500 bg-red-50 hover:bg-red-100 rounded-xl transition-colors flex items-center justify-center gap-1.5"
+            @click="handleRemoveBudget(editingBudgetCategoryId); closeBudgetModal()"
+          >
+            <Trash2 :size="14" />
+            移除该分类预算
+          </button>
+        </div>
+
+        <div class="flex gap-3">
+          <button
+            class="flex-1 py-4 bg-gray-100 text-gray-600 text-sm font-bold rounded-xl hover:bg-gray-200 transition-all active:scale-[0.98]"
+            @click="closeBudgetModal"
+          >
+            取消
+          </button>
+          <button
+            class="flex-[2] py-4 bg-gradient-to-br from-amber-500 to-orange-500 text-white text-sm font-bold rounded-xl shadow-pop transition-all duration-200 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+            :disabled="!editingBudgetCategoryId || !editingBudgetAmount || parseFloat(editingBudgetAmount) <= 0"
+            @click="saveBudget"
+          >
+            保存预算
+          </button>
+        </div>
       </div>
     </div>
   </div>

@@ -9,6 +9,7 @@ import type {
   ExportData,
   RecurringBill,
   RecurrenceCycle,
+  CategoryBudget,
 } from '@/types'
 import { saveToStorage, loadFromStorage } from '@/utils/storage'
 import { validateImportData } from '@/utils/export'
@@ -36,6 +37,7 @@ const initialState = {
   lastMilestone: 0,
   recurringBills: [] as RecurringBill[],
   lastRecurringCheckDate: '',
+  budgets: [] as CategoryBudget[],
 }
 
 const milestones = [100, 500, 1000, 2000, 5000, 10000, 20000, 50000]
@@ -50,6 +52,7 @@ export const useSavingStore = defineStore('saving', () => {
   const lastMilestone = ref(initialState.lastMilestone)
   const recurringBills = ref<RecurringBill[]>(initialState.recurringBills)
   const lastRecurringCheckDate = ref(initialState.lastRecurringCheckDate)
+  const budgets = ref<CategoryBudget[]>(initialState.budgets)
   const recentEvents = ref<SavingEvent[]>([])
   const recentlyUpdatedDecoration = ref<string | null>(null)
   const pointsAnimation = ref({ show: false, amount: 0, startX: 0, startY: 0 })
@@ -76,6 +79,113 @@ export const useSavingStore = defineStore('saving', () => {
         return t.type === 'expense' && d.getMonth() === currentMonth && d.getFullYear() === currentYear
       })
       .reduce((sum, t) => sum + t.amount, 0)
+  })
+
+  function getCurrentMonthKey(): string {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  }
+
+  function getMonthlyExpenseByCategory(categoryId: string): number {
+    const now = new Date()
+    const currentMonth = now.getMonth()
+    const currentYear = now.getFullYear()
+    return transactions.value
+      .filter((t) => {
+        const d = new Date(t.date)
+        return (
+          t.type === 'expense' &&
+          t.categoryId === categoryId &&
+          d.getMonth() === currentMonth &&
+          d.getFullYear() === currentYear
+        )
+      })
+      .reduce((sum, t) => sum + t.amount, 0)
+  }
+
+  function getBudgetByCategory(categoryId: string): CategoryBudget | undefined {
+    return budgets.value.find((b) => b.categoryId === categoryId)
+  }
+
+  function setBudget(categoryId: string, amount: number) {
+    const existing = budgets.value.find((b) => b.categoryId === categoryId)
+    if (amount <= 0) {
+      const idx = budgets.value.findIndex((b) => b.categoryId === categoryId)
+      if (idx !== -1) {
+        budgets.value.splice(idx, 1)
+      }
+      return
+    }
+    if (existing) {
+      existing.amount = amount
+    } else {
+      budgets.value.push({ categoryId, amount })
+    }
+  }
+
+  function removeBudget(categoryId: string) {
+    const idx = budgets.value.findIndex((b) => b.categoryId === categoryId)
+    if (idx !== -1) {
+      budgets.value.splice(idx, 1)
+    }
+  }
+
+  interface BudgetStat {
+    categoryId: string
+    budgetAmount: number
+    usedAmount: number
+    remainingAmount: number
+    usedPercent: number
+    isOverspent: boolean
+    isNearOverspent: boolean
+  }
+
+  const budgetStats = computed<BudgetStat[]>(() => {
+    return budgets.value.map((budget) => {
+      const used = getMonthlyExpenseByCategory(budget.categoryId)
+      const remaining = budget.amount - used
+      const percent = budget.amount > 0 ? (used / budget.amount) * 100 : 0
+      return {
+        categoryId: budget.categoryId,
+        budgetAmount: budget.amount,
+        usedAmount: used,
+        remainingAmount: Math.max(0, remaining),
+        usedPercent: Math.min(100, Math.max(0, percent)),
+        isOverspent: used > budget.amount,
+        isNearOverspent: percent >= 80 && used <= budget.amount,
+      }
+    })
+  })
+
+  const overspentBudgets = computed(() => budgetStats.value.filter((b) => b.isOverspent))
+  const nearOverspentBudgets = computed(() => budgetStats.value.filter((b) => b.isNearOverspent))
+  const hasOverspentBudgets = computed(() => overspentBudgets.value.length > 0)
+
+  function checkAndNotifyBudgetOverspent(categoryId: string, categoryName: string) {
+    const stat = budgetStats.value.find((b) => b.categoryId === categoryId)
+    if (!stat || !stat.isOverspent) return
+
+    const budget = getBudgetByCategory(categoryId)
+    if (!budget) return
+
+    const monthKey = getCurrentMonthKey()
+    if (budget.lastNotifiedOverspendMonth === monthKey) return
+
+    budget.lastNotifiedOverspendMonth = monthKey
+
+    addEvent({
+      type: 'expense',
+      amount: stat.usedAmount - stat.budgetAmount,
+      message: `⚠️ 本月「${categoryName}」已超预算！已用 ¥${stat.usedAmount.toFixed(0)}，预算 ¥${stat.budgetAmount.toFixed(0)}，超支 ¥${(stat.usedAmount - stat.budgetAmount).toFixed(0)}`,
+    })
+  }
+
+  const totalBudgetedExpense = computed(() => {
+    return budgetStats.value.reduce((sum, b) => sum + b.budgetAmount, 0)
+  })
+
+  const totalBudgetUsed = computed(() => {
+    return budgetStats.value.reduce((sum, b) => sum + b.usedAmount, 0)
   })
 
   const nextMilestone = computed(() => {
@@ -584,6 +694,7 @@ export const useSavingStore = defineStore('saving', () => {
     if (typeof data.lastMilestone === 'number') lastMilestone.value = data.lastMilestone
     if (Array.isArray(data.recurringBills)) recurringBills.value = data.recurringBills
     if (typeof data.lastRecurringCheckDate === 'string') lastRecurringCheckDate.value = data.lastRecurringCheckDate
+    if (Array.isArray(data.budgets)) budgets.value = data.budgets
   }
 
   function importData(data: ExportData): boolean {
@@ -603,6 +714,7 @@ export const useSavingStore = defineStore('saving', () => {
       lastMilestone: lastMilestone.value,
       recurringBills: recurringBills.value,
       lastRecurringCheckDate: lastRecurringCheckDate.value,
+      budgets: budgets.value,
       version: '1.0.0',
       exportedAt: new Date().toISOString(),
     }
@@ -618,6 +730,7 @@ export const useSavingStore = defineStore('saving', () => {
     lastMilestone: lastMilestone.value,
     recurringBills: recurringBills.value,
     lastRecurringCheckDate: lastRecurringCheckDate.value,
+    budgets: budgets.value,
   }))
 
   watch(
@@ -645,6 +758,7 @@ export const useSavingStore = defineStore('saving', () => {
     lastMilestone,
     recurringBills,
     lastRecurringCheckDate,
+    budgets,
     recentEvents,
     recentlyUpdatedDecoration,
     pointsAnimation,
@@ -661,6 +775,12 @@ export const useSavingStore = defineStore('saving', () => {
     recurringBillsByCategory,
     expenseRecurringByCategory,
     incomeRecurringByCategory,
+    budgetStats,
+    overspentBudgets,
+    nearOverspentBudgets,
+    hasOverspentBudgets,
+    totalBudgetedExpense,
+    totalBudgetUsed,
     calculateMonthlyAmount,
     addTransaction,
     deleteTransaction,
@@ -680,6 +800,11 @@ export const useSavingStore = defineStore('saving', () => {
     calculateNextDueDate,
     getDaysUntilDue,
     getRecurringBillsByCategory,
+    getMonthlyExpenseByCategory,
+    getBudgetByCategory,
+    setBudget,
+    removeBudget,
+    checkAndNotifyBudgetOverspent,
     loadInitialData,
     importData,
     getExportState,
