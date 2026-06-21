@@ -94,6 +94,21 @@ export const useSavingStore = defineStore('saving', () => {
     return recurringBills.value.filter(bill => bill.isActive)
   })
 
+  const remindingBills = computed(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    return activeRecurringBills.value
+      .filter(bill => {
+        const dueDate = new Date(bill.nextDueDate)
+        dueDate.setHours(0, 0, 0, 0)
+        const diffTime = dueDate.getTime() - today.getTime()
+        const daysUntilDue = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+        return daysUntilDue >= 0 && daysUntilDue <= bill.remindDaysBefore
+      })
+      .sort((a, b) => new Date(a.nextDueDate).getTime() - new Date(b.nextDueDate).getTime())
+  })
+
   const upcomingBills = computed(() => {
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -120,16 +135,67 @@ export const useSavingStore = defineStore('saving', () => {
       .sort((a, b) => new Date(a.nextDueDate).getTime() - new Date(b.nextDueDate).getTime())
   })
 
+  function calculateMonthlyAmount(amount: number, cycle: RecurrenceCycle): number {
+    switch (cycle) {
+      case 'daily':
+        return amount * 30
+      case 'weekly':
+        return amount * 4.33
+      case 'monthly':
+        return amount
+      case 'yearly':
+        return amount / 12
+      default:
+        return amount
+    }
+  }
+
   const monthlyRecurringExpense = computed(() => {
     return activeRecurringBills.value
       .filter(bill => bill.type === 'expense')
-      .reduce((sum, bill) => sum + bill.amount, 0)
+      .reduce((sum, bill) => sum + calculateMonthlyAmount(bill.amount, bill.cycle), 0)
   })
 
   const monthlyRecurringIncome = computed(() => {
     return activeRecurringBills.value
       .filter(bill => bill.type === 'income')
-      .reduce((sum, bill) => sum + bill.amount, 0)
+      .reduce((sum, bill) => sum + calculateMonthlyAmount(bill.amount, bill.cycle), 0)
+  })
+
+  interface CategoryRecurringStats {
+    categoryId: string
+    bills: RecurringBill[]
+    totalAmount: number
+    monthlyAmount: number
+  }
+
+  const recurringBillsByCategory = computed(() => {
+    const categoriesMap = new Map<string, CategoryRecurringStats>()
+
+    for (const bill of activeRecurringBills.value) {
+      if (!categoriesMap.has(bill.categoryId)) {
+        categoriesMap.set(bill.categoryId, {
+          categoryId: bill.categoryId,
+          bills: [],
+          totalAmount: 0,
+          monthlyAmount: 0,
+        })
+      }
+      const stats = categoriesMap.get(bill.categoryId)!
+      stats.bills.push(bill)
+      stats.totalAmount += bill.amount
+      stats.monthlyAmount += calculateMonthlyAmount(bill.amount, bill.cycle)
+    }
+
+    return Array.from(categoriesMap.values()).sort((a, b) => b.monthlyAmount - a.monthlyAmount)
+  })
+
+  const expenseRecurringByCategory = computed(() => {
+    return recurringBillsByCategory.value.filter(s => s.bills.some(b => b.type === 'expense'))
+  })
+
+  const incomeRecurringByCategory = computed(() => {
+    return recurringBillsByCategory.value.filter(s => s.bills.some(b => b.type === 'income'))
   })
 
   function calculateNextDueDate(startDate: string, cycle: RecurrenceCycle): string {
@@ -238,7 +304,7 @@ export const useSavingStore = defineStore('saving', () => {
 
     if (lastRecurringCheckDate.value === todayStr) return
 
-    const billsToRecord: RecurringBill[] = []
+    const recordsToAdd: { bill: RecurringBill; dueDate: string }[] = []
 
     for (const bill of activeRecurringBills.value) {
       if (!bill.autoRecord) continue
@@ -256,7 +322,10 @@ export const useSavingStore = defineStore('saving', () => {
           }
         }
 
-        billsToRecord.push(bill)
+        recordsToAdd.push({
+          bill,
+          dueDate: dueDate.toISOString().split('T')[0],
+        })
 
         switch (bill.cycle) {
           case 'daily':
@@ -278,17 +347,20 @@ export const useSavingStore = defineStore('saving', () => {
       bill.lastRecordedDate = todayStr
     }
 
-    for (const bill of billsToRecord) {
+    for (const record of recordsToAdd) {
       addTransaction(
-        bill.type,
-        bill.amount,
-        bill.categoryId,
-        `${bill.name}（自动记账）${bill.note ? ' - ' + bill.note : ''}`
+        record.bill.type,
+        record.bill.amount,
+        record.bill.categoryId,
+        `${record.bill.name}（自动记账）${record.bill.note ? ' - ' + record.bill.note : ''}`,
+        0,
+        0,
+        record.dueDate
       )
       addEvent({
-        type: bill.type,
-        amount: bill.amount,
-        message: `🔄 周期性账单「${bill.name}」自动${bill.type === 'income' ? '入账' : '扣费'} ¥${bill.amount}`,
+        type: record.bill.type,
+        amount: record.bill.amount,
+        message: `🔄 周期性账单「${record.bill.name}」自动${record.bill.type === 'income' ? '入账' : '扣费'} ¥${record.bill.amount}`,
       })
     }
 
@@ -332,7 +404,7 @@ export const useSavingStore = defineStore('saving', () => {
     }, 10)
   }
 
-  function addTransaction(type: TransactionType, amount: number, categoryId: string, note: string, x = 0, y = 0) {
+  function addTransaction(type: TransactionType, amount: number, categoryId: string, note: string, x = 0, y = 0, date?: string) {
     const oldPoints = points.value
     const transaction: Transaction = {
       id: `t-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -340,7 +412,7 @@ export const useSavingStore = defineStore('saving', () => {
       amount,
       categoryId,
       note,
-      date: new Date().toISOString().split('T')[0],
+      date: date || new Date().toISOString().split('T')[0],
     }
     transactions.value.unshift(transaction)
 
@@ -583,8 +655,13 @@ export const useSavingStore = defineStore('saving', () => {
     activeRecurringBills,
     upcomingBills,
     overdueBills,
+    remindingBills,
     monthlyRecurringExpense,
     monthlyRecurringIncome,
+    recurringBillsByCategory,
+    expenseRecurringByCategory,
+    incomeRecurringByCategory,
+    calculateMonthlyAmount,
     addTransaction,
     deleteTransaction,
     addWish,

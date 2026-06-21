@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { Trash2, Plus, Minus, Repeat } from 'lucide-vue-next'
+import { Trash2, Plus, Minus, Repeat, ChevronDown, ChevronUp, Calendar } from 'lucide-vue-next'
 import { useSavingStore } from '@/stores/saving'
 import { useCategories } from '@/composables/useCategories'
 import { getIconComponent } from '@/utils/iconMap'
-import type { TransactionType } from '@/types'
+import type { TransactionType, RecurrenceCycle } from '@/types'
 
 const emit = defineEmits<{
   (e: 'goto-recurring'): void
@@ -14,10 +14,56 @@ const store = useSavingStore()
 const { getCategoryById, getCategoriesByType } = useCategories()
 
 const showAddModal = ref(false)
+const showRecurringDetail = ref(false)
 const newTxType = ref<TransactionType>('expense')
 const newTxAmount = ref('')
 const newTxCategory = ref('')
 const newTxNote = ref('')
+
+const expenseRecurringStats = computed(() => {
+  const categoriesMap = new Map<string, {
+    categoryId: string
+    categoryName: string
+    categoryColor: string
+    categoryIcon: string
+    bills: typeof store.recurringBills[number][]
+    monthlyAmount: number
+    billCount: number
+  }>()
+
+  for (const bill of store.activeRecurringBills) {
+    if (bill.type !== 'expense') continue
+
+    const cat = getCategoryById(bill.categoryId)
+    if (!categoriesMap.has(bill.categoryId)) {
+      categoriesMap.set(bill.categoryId, {
+        categoryId: bill.categoryId,
+        categoryName: cat?.name || '其他',
+        categoryColor: cat?.color || '#9CA3AF',
+        categoryIcon: cat?.icon || '',
+        bills: [],
+        monthlyAmount: 0,
+        billCount: 0,
+      })
+    }
+    const stats = categoriesMap.get(bill.categoryId)!
+    stats.bills.push(bill)
+    stats.monthlyAmount += store.calculateMonthlyAmount(bill.amount, bill.cycle)
+    stats.billCount += 1
+  }
+
+  return Array.from(categoriesMap.values()).sort((a, b) => b.monthlyAmount - a.monthlyAmount)
+})
+
+function formatCycle(cycle: RecurrenceCycle): string {
+  const map: Record<RecurrenceCycle, string> = {
+    daily: '每天',
+    weekly: '每周',
+    monthly: '每月',
+    yearly: '每年',
+  }
+  return map[cycle]
+}
 
 const sortedTransactions = computed(() => {
   return [...store.transactions].sort((a, b) =>
@@ -127,10 +173,64 @@ function handleDelete(id: string) {
           <div v-if="store.overdueBills.length > 0" class="text-xs font-bold text-red-500">
             {{ store.overdueBills.length }} 笔逾期
           </div>
-          <div v-else-if="store.upcomingBills.length > 0" class="text-xs font-bold text-amber-500">
-            {{ store.upcomingBills.length }} 笔即将到期
+          <div v-else-if="store.remindingBills.length > 0" class="text-xs font-bold text-amber-500">
+            {{ store.remindingBills.length }} 笔即将到期
           </div>
           <div v-else class="text-xs text-gray-400">运行正常</div>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="expenseRecurringStats.length > 0" class="bg-white rounded-2xl p-4 mb-4 shadow-softer">
+      <button
+        class="w-full flex items-center justify-between mb-3"
+        @click="showRecurringDetail = !showRecurringDetail"
+      >
+        <div class="flex items-center gap-2">
+          <span class="text-sm font-bold text-gray-700">📊 订阅支出分类统计</span>
+          <span class="text-[10px] px-2 py-0.5 bg-lavender-100 text-lavender-600 rounded-full font-medium">
+            月均 ¥{{ store.monthlyRecurringExpense.toFixed(0) }}
+          </span>
+        </div>
+        <ChevronDown v-if="!showRecurringDetail" :size="18" class="text-gray-400" />
+        <ChevronUp v-else :size="18" class="text-gray-400" />
+      </button>
+
+      <div v-if="showRecurringDetail" class="space-y-3">
+        <div v-for="stat in expenseRecurringStats" :key="stat.categoryId" class="border-t border-gray-50 pt-3 first:border-t-0 first:pt-0">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <div
+                class="w-8 h-8 rounded-lg flex items-center justify-center"
+                :style="{ backgroundColor: stat.categoryColor + '20', color: stat.categoryColor }"
+              >
+                <component v-if="getIconComponent(stat.categoryIcon)" :is="getIconComponent(stat.categoryIcon)" :size="16" />
+                <span v-else class="text-sm">📌</span>
+              </div>
+              <div>
+                <span class="text-sm font-semibold text-gray-700">{{ stat.categoryName }}</span>
+                <span class="text-[10px] text-gray-400 ml-1">{{ stat.billCount }} 笔</span>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="text-sm font-bold text-warm-500">¥{{ stat.monthlyAmount.toFixed(0) }}<span class="text-[10px] font-normal text-gray-400">/月</span></div>
+            </div>
+          </div>
+
+          <div class="space-y-1.5 pl-10">
+            <div
+              v-for="bill in stat.bills"
+              :key="bill.id"
+              class="flex items-center justify-between py-1.5 px-2 bg-gray-50 rounded-lg"
+            >
+              <div class="flex items-center gap-2 min-w-0">
+                <Calendar :size="12" class="text-gray-400 flex-shrink-0" />
+                <span class="text-xs text-gray-600 truncate">{{ bill.name }}</span>
+                <span class="text-[10px] text-gray-400 flex-shrink-0">{{ formatCycle(bill.cycle) }}</span>
+              </div>
+              <div class="text-xs font-semibold text-warm-500 flex-shrink-0">-¥{{ bill.amount.toFixed(0) }}</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

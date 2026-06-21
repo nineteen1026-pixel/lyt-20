@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue'
+import { ref, onMounted, computed, watch, nextTick } from 'vue'
 import { useSavingStore } from '@/stores/saving'
 import { useCategories } from '@/composables/useCategories'
 import { useDecorations } from '@/composables/useDecorations'
@@ -9,10 +9,12 @@ import AccountBook from '@/components/AccountBook.vue'
 import WishList from '@/components/WishList.vue'
 import Workshop from '@/components/Workshop.vue'
 import RecurringBills from '@/components/RecurringBills.vue'
+import { Bell, Calendar } from 'lucide-vue-next'
 import type { SavingEvent } from '@/stores/saving'
+import type { RecurringBill } from '@/types'
 
 const store = useSavingStore()
-const { loadCategories } = useCategories()
+const { loadCategories, getCategoryById } = useCategories()
 const { loadDecorations } = useDecorations()
 
 const activeTab = ref<'account' | 'wish' | 'workshop' | 'recurring'>('account')
@@ -21,6 +23,7 @@ const displayedBalance = ref(0)
 const displayedPoints = ref(0)
 const displayedIncome = ref(0)
 const displayedExpense = ref(0)
+const showReminderModal = ref(false)
 
 const tabs = ['account', 'wish', 'workshop', 'recurring'] as const
 const activeIndex = computed(() => tabs.indexOf(activeTab.value))
@@ -108,6 +111,38 @@ watch(
   { immediate: true }
 )
 
+function formatDate(dateStr: string): string {
+  const d = new Date(dateStr)
+  return `${d.getMonth() + 1}月${d.getDate()}日`
+}
+
+function getDaysUntilDue(dueDate: string): number {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  const due = new Date(dueDate)
+  due.setHours(0, 0, 0, 0)
+  const diffTime = due.getTime() - today.getTime()
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+}
+
+function getReminderBills(): { overdue: RecurringBill[]; reminding: RecurringBill[] } {
+  const overdue = store.overdueBills
+  const reminding = store.remindingBills
+  return { overdue, reminding }
+}
+
+function handleGoToRecurring() {
+  showReminderModal.value = false
+  nextTick(() => {
+    activeTab.value = 'recurring'
+    showPanel.value = true
+  })
+}
+
+function dismissReminder() {
+  showReminderModal.value = false
+}
+
 onMounted(async () => {
   store.initFromStorage()
 
@@ -115,9 +150,16 @@ onMounted(async () => {
     await loadInitialData()
   }
 
-  loadCategories()
+  await loadCategories()
   loadDecorations()
   store.checkAndRecordRecurringBills()
+
+  setTimeout(() => {
+    const { overdue, reminding } = getReminderBills()
+    if (overdue.length > 0 || reminding.length > 0) {
+      showReminderModal.value = true
+    }
+  }, 800)
 })
 </script>
 
@@ -270,6 +312,106 @@ onMounted(async () => {
         @update:active-tab="handleTabChange"
         @add-transaction="handleAddTransaction"
       />
+
+      <transition name="reminder-modal">
+        <div v-if="showReminderModal" class="fixed inset-0 bg-black/50 z-[200] flex items-center justify-center p-5" @click.self="dismissReminder">
+          <div class="w-full max-w-[400px] bg-white rounded-3xl overflow-hidden shadow-2xl animate-[reminderPop_0.4s_cubic-bezier(0.34,1.56,0.64,1)]">
+            <div class="bg-gradient-to-br from-amber-400 to-orange-500 p-5 text-white">
+              <div class="flex items-center gap-3">
+                <div class="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center">
+                  <Bell :size="28" />
+                </div>
+                <div>
+                  <h3 class="text-lg font-extrabold">账单提醒</h3>
+                  <p class="text-sm opacity-90">
+                    {{ store.overdueBills.length > 0 ? `${store.overdueBills.length} 笔逾期，` : '' }}
+                    {{ store.remindingBills.length > 0 ? `${store.remindingBills.length} 笔即将到期` : '' }}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div class="p-5 max-h-[50vh] overflow-y-auto">
+              <div v-if="store.overdueBills.length > 0" class="mb-4">
+                <div class="flex items-center gap-2 mb-3">
+                  <span class="w-2 h-2 bg-red-500 rounded-full"></span>
+                  <span class="text-sm font-bold text-red-500">逾期账单</span>
+                </div>
+                <div class="space-y-2">
+                  <div
+                    v-for="bill in store.overdueBills"
+                    :key="bill.id"
+                    class="flex items-center gap-3 p-3 bg-red-50 rounded-xl border border-red-100"
+                  >
+                    <div
+                      class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                      :style="{ backgroundColor: (getCategoryById(bill.categoryId)?.color || '#9CA3AF') + '20', color: getCategoryById(bill.categoryId)?.color || '#9CA3AF' }"
+                    >
+                      <span class="text-lg">{{ bill.type === 'income' ? '💰' : '💸' }}</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="text-sm font-semibold text-gray-700 truncate">{{ bill.name }}</div>
+                      <div class="text-xs text-red-500 flex items-center gap-1">
+                        <Calendar :size="12" />
+                        <span>已逾期 {{ Math.abs(getDaysUntilDue(bill.nextDueDate)) }} 天</span>
+                      </div>
+                    </div>
+                    <div class="text-sm font-bold text-red-500 flex-shrink-0">
+                      {{ bill.type === 'income' ? '+' : '-' }}¥{{ bill.amount.toFixed(0) }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div v-if="store.remindingBills.length > 0">
+                <div class="flex items-center gap-2 mb-3">
+                  <span class="w-2 h-2 bg-amber-500 rounded-full"></span>
+                  <span class="text-sm font-bold text-amber-600">即将到期</span>
+                </div>
+                <div class="space-y-2">
+                  <div
+                    v-for="bill in store.remindingBills"
+                    :key="bill.id"
+                    class="flex items-center gap-3 p-3 bg-amber-50 rounded-xl border border-amber-100"
+                  >
+                    <div
+                      class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                      :style="{ backgroundColor: (getCategoryById(bill.categoryId)?.color || '#9CA3AF') + '20', color: getCategoryById(bill.categoryId)?.color || '#9CA3AF' }"
+                    >
+                      <span class="text-lg">{{ bill.type === 'income' ? '💰' : '💸' }}</span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="text-sm font-semibold text-gray-700 truncate">{{ bill.name }}</div>
+                      <div class="text-xs text-amber-600 flex items-center gap-1">
+                        <Calendar :size="12" />
+                        <span>{{ formatDate(bill.nextDueDate) }}（还有 {{ getDaysUntilDue(bill.nextDueDate) }} 天）</span>
+                      </div>
+                    </div>
+                    <div class="text-sm font-bold text-amber-600 flex-shrink-0">
+                      {{ bill.type === 'income' ? '+' : '-' }}¥{{ bill.amount.toFixed(0) }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="p-5 pt-0 flex gap-3">
+              <button
+                class="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl font-semibold text-sm hover:bg-gray-200 transition-colors active:scale-95"
+                @click="dismissReminder"
+              >
+                稍后再说
+              </button>
+              <button
+                class="flex-1 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl font-semibold text-sm hover:shadow-lg transition-all active:scale-95"
+                @click="handleGoToRecurring"
+              >
+                去查看
+              </button>
+            </div>
+          </div>
+        </div>
+      </transition>
     </div>
   </div>
 </template>
@@ -346,5 +488,29 @@ onMounted(async () => {
 .slide-up-enter-from,
 .slide-up-leave-to {
   transform: translateX(-50%) translateY(100%);
+}
+
+.reminder-modal-enter-active,
+.reminder-modal-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.reminder-modal-enter-from,
+.reminder-modal-leave-to {
+  opacity: 0;
+}
+
+@keyframes reminderPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.8) translateY(20px);
+  }
+  60% {
+    transform: scale(1.05) translateY(-5px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 </style>
