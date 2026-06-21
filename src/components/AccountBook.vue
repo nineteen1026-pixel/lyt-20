@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { Trash2, Plus, Minus } from 'lucide-vue-next'
 import { useSavingStore } from '@/stores/saving'
 import { useCategories } from '@/composables/useCategories'
+import { getIconComponent } from '@/utils/iconMap'
 import type { TransactionType } from '@/types'
 
 const store = useSavingStore()
@@ -48,7 +49,7 @@ function formatAmount(amount: number, type: TransactionType): string {
   return `${prefix}¥${amount.toFixed(0)}`
 }
 
-function openAddModal(type: TransactionType) {
+function openAddModal(type: TransactionType, event?: MouseEvent) {
   newTxType.value = type
   newTxAmount.value = ''
   newTxNote.value = ''
@@ -57,10 +58,20 @@ function openAddModal(type: TransactionType) {
   showAddModal.value = true
 }
 
-function handleAdd() {
+function handleAdd(event?: MouseEvent) {
   const amount = parseFloat(newTxAmount.value)
   if (!amount || amount <= 0 || !newTxCategory.value) return
-  store.addTransaction(newTxType.value, amount, newTxCategory.value, newTxNote.value || (newTxType.value === 'income' ? '收入' : '支出'))
+  const rect = (event?.target as HTMLElement)?.getBoundingClientRect()
+  const x = rect ? rect.left + rect.width / 2 : 0
+  const y = rect ? rect.top + rect.height / 2 : 0
+  store.addTransaction(
+    newTxType.value,
+    amount,
+    newTxCategory.value,
+    newTxNote.value || (newTxType.value === 'income' ? '收入' : '支出'),
+    x,
+    y
+  )
   showAddModal.value = false
 }
 
@@ -72,122 +83,147 @@ function handleDelete(id: string) {
 </script>
 
 <template>
-  <div class="account-book">
-    <div class="summary-cards">
-      <div class="summary-card income">
-        <div class="summary-label">本月收入</div>
-        <div class="summary-value">¥{{ store.monthlyIncome.toFixed(0) }}</div>
+  <div class="px-4 pb-[100px]">
+    <div class="grid grid-cols-3 gap-2.5 mb-4">
+      <div class="bg-white rounded-2xl p-3.5 text-center shadow-softer">
+        <div class="text-xs text-gray-400 mb-1">本月收入</div>
+        <div class="text-base font-bold text-mint-500">¥{{ store.monthlyIncome.toFixed(0) }}</div>
       </div>
-      <div class="summary-card expense">
-        <div class="summary-label">本月支出</div>
-        <div class="summary-value">¥{{ store.monthlyExpense.toFixed(0) }}</div>
+      <div class="bg-white rounded-2xl p-3.5 text-center shadow-softer">
+        <div class="text-xs text-gray-400 mb-1">本月支出</div>
+        <div class="text-base font-bold text-warm-500">¥{{ store.monthlyExpense.toFixed(0) }}</div>
       </div>
-      <div class="summary-card balance">
-        <div class="summary-label">结余</div>
-        <div class="summary-value">¥{{ (store.monthlyIncome - store.monthlyExpense).toFixed(0) }}</div>
+      <div class="bg-white rounded-2xl p-3.5 text-center shadow-softer">
+        <div class="text-xs text-gray-400 mb-1">结余</div>
+        <div class="text-base font-bold text-lavender-500">¥{{ (store.monthlyIncome - store.monthlyExpense).toFixed(0) }}</div>
       </div>
     </div>
 
-    <div class="quick-actions">
-      <button class="quick-btn income-btn" @click="openAddModal('income')">
+    <div class="flex gap-2.5 mb-5">
+      <button
+        class="flex-1 flex items-center justify-center gap-1.5 py-3 px-3 rounded-xl text-sm font-semibold transition-all duration-200 active:scale-95 bg-mint-500/12 text-mint-500 hover:bg-mint-500/20"
+        @click="openAddModal('income', $event)"
+      >
         <Plus :size="18" />
         <span>记收入</span>
       </button>
-      <button class="quick-btn expense-btn" @click="openAddModal('expense')">
+      <button
+        class="flex-1 flex items-center justify-center gap-1.5 py-3 px-3 rounded-xl text-sm font-semibold transition-all duration-200 active:scale-95 bg-warm-500/12 text-warm-500 hover:bg-warm-500/20"
+        @click="openAddModal('expense', $event)"
+      >
         <Minus :size="18" />
         <span>记支出</span>
       </button>
     </div>
 
-    <div class="transaction-list">
-      <div v-for="(txs, date) in groupedTransactions" :key="date" class="date-group">
-        <div class="date-header">{{ formatDate(date as string) }}</div>
+    <div class="bg-white rounded-[20px] py-1 shadow-softer">
+      <div v-for="(txs, date) in groupedTransactions" :key="date" class="px-4">
+        <div class="text-xs text-gray-400 py-3 pb-1.5 font-semibold">{{ formatDate(date as string) }}</div>
         <div
           v-for="tx in txs"
           :key="tx.id"
-          class="tx-item"
+          class="flex items-center gap-3 py-3 border-b border-gray-100 last:border-b-0"
         >
           <div
-            class="tx-icon"
-            :style="{ backgroundColor: getCategoryById(tx.categoryId)?.color + '20', color: getCategoryById(tx.categoryId)?.color }"
+            class="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+            :style="{ backgroundColor: (getCategoryById(tx.categoryId)?.color || '#9CA3AF') + '20', color: getCategoryById(tx.categoryId)?.color || '#9CA3AF' }"
           >
-            <span class="tx-emoji">{{ getCategoryById(tx.categoryId)?.icon ? '' : '💰' }}</span>
+            <component
+              v-if="getIconComponent(getCategoryById(tx.categoryId)?.icon || '')"
+              :is="getIconComponent(getCategoryById(tx.categoryId)?.icon || '')"
+              :size="20"
+            />
+            <span v-else class="text-lg">💰</span>
           </div>
-          <div class="tx-info">
-            <div class="tx-name">{{ getCategoryById(tx.categoryId)?.name || '其他' }}</div>
-            <div class="tx-note" v-if="tx.note">{{ tx.note }}</div>
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-semibold text-gray-700">{{ getCategoryById(tx.categoryId)?.name || '其他' }}</div>
+            <div v-if="tx.note" class="text-xs text-gray-400 mt-0.5 truncate">{{ tx.note }}</div>
           </div>
-          <div class="tx-amount" :class="tx.type">
+          <div class="text-base font-bold flex-shrink-0" :class="tx.type === 'income' ? 'text-mint-500' : 'text-warm-500'">
             {{ formatAmount(tx.amount, tx.type) }}
           </div>
-          <button class="tx-delete" @click="handleDelete(tx.id)">
+          <button
+            class="text-gray-300 p-1.5 rounded-lg transition-all duration-200 flex-shrink-0 hover:text-red-500 hover:bg-red-50"
+            @click="handleDelete(tx.id)"
+          >
             <Trash2 :size="16" />
           </button>
         </div>
       </div>
 
-      <div v-if="sortedTransactions.length === 0" class="empty-state">
-        <div class="empty-icon">📒</div>
-        <div class="empty-text">还没有记录，开始记账吧</div>
+      <div v-if="sortedTransactions.length === 0" class="text-center py-10 px-5">
+        <div class="text-5xl mb-3">📒</div>
+        <div class="text-gray-400 text-sm">还没有记录，开始记账吧</div>
       </div>
     </div>
 
-    <div v-if="showAddModal" class="modal-overlay" @click.self="showAddModal = false">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>{{ newTxType === 'income' ? '记一笔收入' : '记一笔支出' }}</h3>
-          <button class="close-btn" @click="showAddModal = false">×</button>
+    <div v-if="showAddModal" class="fixed inset-0 bg-black/40 z-[1000] flex items-end justify-center animate-[fadeIn_0.2s_ease]" @click.self="showAddModal = false">
+      <div class="w-full max-w-[480px] bg-white rounded-t-[24px] p-5 animate-[slideUp_0.3s_cubic-bezier(0.34,1.56,0.64,1)]">
+        <div class="flex items-center justify-between mb-4">
+          <h3 class="text-lg font-bold text-gray-700">{{ newTxType === 'income' ? '记一笔收入' : '记一笔支出' }}</h3>
+          <button class="w-8 h-8 rounded-full bg-gray-100 text-gray-500 text-xl flex items-center justify-center" @click="showAddModal = false">×</button>
         </div>
 
-        <div class="type-toggle">
+        <div class="flex bg-gray-100 rounded-xl p-1 mb-5">
           <button
-            :class="{ active: newTxType === 'income' }"
+            class="flex-1 py-2.5 rounded-lg font-semibold text-sm text-gray-500 transition-all duration-200"
+            :class="{ 'bg-white text-warm-500 shadow-sm': newTxType === 'income' }"
             @click="newTxType = 'income'; newTxCategory = getCategoriesByType('income')[0]?.id || ''"
           >
             收入
           </button>
           <button
-            :class="{ active: newTxType === 'expense' }"
+            class="flex-1 py-2.5 rounded-lg font-semibold text-sm text-gray-500 transition-all duration-200"
+            :class="{ 'bg-white text-warm-500 shadow-sm': newTxType === 'expense' }"
             @click="newTxType = 'expense'; newTxCategory = getCategoriesByType('expense')[0]?.id || ''"
           >
             支出
           </button>
         </div>
 
-        <div class="amount-input">
-          <span class="currency">¥</span>
+        <div class="flex items-baseline gap-2 mb-6 py-3 px-4 bg-gray-50 rounded-xl">
+          <span class="text-2xl font-bold text-gray-700">¥</span>
           <input
             v-model="newTxAmount"
             type="number"
             placeholder="0.00"
             autofocus
+            class="flex-1 text-3xl font-bold border-none bg-transparent outline-none text-gray-700"
           />
         </div>
 
-        <div class="category-grid">
+        <div class="grid grid-cols-4 gap-2.5 mb-5">
           <button
             v-for="cat in getCategoriesByType(newTxType)"
             :key="cat.id"
-            class="cat-item"
-            :class="{ active: newTxCategory === cat.id }"
+            class="flex flex-col items-center gap-1.5 py-3 px-1 rounded-xl transition-all duration-200"
+            :class="{ 'bg-warm-50 shadow-[inset_0_0_0_2px_#ff9b7b]': newTxCategory === cat.id }"
             @click="newTxCategory = cat.id"
           >
-            <div class="cat-icon" :style="{ backgroundColor: cat.color + '20', color: cat.color }">
-              <span>{{ cat.icon ? '' : '📌' }}</span>
+            <div
+              class="w-11 h-11 rounded-xl flex items-center justify-center text-xl"
+              :style="{ backgroundColor: cat.color + '20', color: cat.color }"
+            >
+              <component v-if="getIconComponent(cat.icon)" :is="getIconComponent(cat.icon)" :size="20" />
+              <span v-else>📌</span>
             </div>
-            <span class="cat-name">{{ cat.name }}</span>
+            <span class="text-xs font-semibold" :class="newTxCategory === cat.id ? 'text-warm-500' : 'text-gray-500'">{{ cat.name }}</span>
           </button>
         </div>
 
-        <div class="note-input">
+        <div class="mb-5">
           <input
             v-model="newTxNote"
             type="text"
             placeholder="添加备注（可选）"
+            class="w-full py-3 px-4 border-2 border-gray-100 rounded-xl text-sm outline-none transition-colors duration-200 focus:border-warm-500"
           />
         </div>
 
-        <button class="confirm-btn" @click="handleAdd">
+        <button
+          class="w-full py-4 bg-gradient-to-br from-warm-500 to-warm-600 text-white text-base font-bold rounded-xl shadow-pop transition-all duration-200 active:scale-[0.98]"
+          @click="handleAdd($event)"
+        >
           确认
         </button>
       </div>
@@ -195,371 +231,14 @@ function handleDelete(id: string) {
   </div>
 </template>
 
-<style scoped>
-.account-book {
-  padding: 0 16px 100px;
-}
-
-.summary-cards {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  margin-bottom: 16px;
-}
-
-.summary-card {
-  background: white;
-  border-radius: 16px;
-  padding: 14px 10px;
-  text-align: center;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
-}
-
-.summary-label {
-  font-size: 11px;
-  color: #9ca3af;
-  margin-bottom: 4px;
-}
-
-.summary-value {
-  font-size: 16px;
-  font-weight: 700;
-}
-
-.summary-card.income .summary-value {
-  color: #5ab37e;
-}
-
-.summary-card.expense .summary-value {
-  color: #ff9b7b;
-}
-
-.summary-card.balance .summary-value {
-  color: #9c7dd4;
-}
-
-.quick-actions {
-  display: flex;
-  gap: 10px;
-  margin-bottom: 20px;
-}
-
-.quick-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 12px;
-  border-radius: 14px;
-  font-size: 14px;
-  font-weight: 600;
-  transition: all 0.2s ease;
-}
-
-.income-btn {
-  background: rgba(90, 179, 126, 0.12);
-  color: #5ab37e;
-}
-
-.income-btn:hover {
-  background: rgba(90, 179, 126, 0.2);
-}
-
-.expense-btn {
-  background: rgba(255, 155, 123, 0.12);
-  color: #ff9b7b;
-}
-
-.expense-btn:hover {
-  background: rgba(255, 155, 123, 0.2);
-}
-
-.transaction-list {
-  background: white;
-  border-radius: 20px;
-  padding: 4px 0;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
-}
-
-.date-group {
-  padding: 0 16px;
-}
-
-.date-header {
-  font-size: 12px;
-  color: #9ca3af;
-  padding: 12px 0 6px;
-  font-weight: 600;
-}
-
-.tx-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 0;
-  border-bottom: 1px solid #f3f4f6;
-}
-
-.tx-item:last-child {
-  border-bottom: none;
-}
-
-.tx-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  font-size: 18px;
-}
-
-.tx-emoji {
-  font-size: 20px;
-}
-
-.tx-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.tx-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: #374151;
-}
-
-.tx-note {
-  font-size: 12px;
-  color: #9ca3af;
-  margin-top: 2px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tx-amount {
-  font-size: 16px;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-
-.tx-amount.income {
-  color: #5ab37e;
-}
-
-.tx-amount.expense {
-  color: #ff9b7b;
-}
-
-.tx-delete {
-  color: #d1d5db;
-  padding: 6px;
-  border-radius: 8px;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
-}
-
-.tx-delete:hover {
-  color: #ef4444;
-  background: #fef2f2;
-}
-
-.empty-state {
-  padding: 40px 20px;
-  text-align: center;
-}
-
-.empty-icon {
-  font-size: 48px;
-  margin-bottom: 12px;
-}
-
-.empty-text {
-  color: #9ca3af;
-  font-size: 14px;
-}
-
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  z-index: 1000;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  animation: fadeIn 0.2s ease;
-}
-
+<style>
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
-.modal-content {
-  width: 100%;
-  max-width: 480px;
-  background: white;
-  border-radius: 24px 24px 0 0;
-  padding: 20px;
-  animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
 @keyframes slideUp {
   from { transform: translateY(100%); }
   to { transform: translateY(0); }
-}
-
-.modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-}
-
-.modal-header h3 {
-  font-size: 18px;
-  font-weight: 700;
-  color: #374151;
-}
-
-.close-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: #f3f4f6;
-  color: #6b7280;
-  font-size: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.type-toggle {
-  display: flex;
-  background: #f3f4f6;
-  border-radius: 12px;
-  padding: 4px;
-  margin-bottom: 20px;
-}
-
-.type-toggle button {
-  flex: 1;
-  padding: 10px;
-  border-radius: 10px;
-  font-weight: 600;
-  font-size: 14px;
-  color: #6b7280;
-  transition: all 0.2s ease;
-}
-
-.type-toggle button.active {
-  background: white;
-  color: #ff9b7b;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-}
-
-.amount-input {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin-bottom: 24px;
-  padding: 12px 16px;
-  background: #f9fafb;
-  border-radius: 16px;
-}
-
-.currency {
-  font-size: 24px;
-  font-weight: 700;
-  color: #374151;
-}
-
-.amount-input input {
-  flex: 1;
-  font-size: 32px;
-  font-weight: 700;
-  border: none;
-  background: transparent;
-  outline: none;
-  color: #374151;
-}
-
-.category-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-  margin-bottom: 20px;
-}
-
-.cat-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  padding: 12px 4px;
-  border-radius: 14px;
-  transition: all 0.2s ease;
-}
-
-.cat-item.active {
-  background: #fff8f0;
-  box-shadow: inset 0 0 0 2px #ff9b7b;
-}
-
-.cat-icon {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-}
-
-.cat-name {
-  font-size: 11px;
-  font-weight: 600;
-  color: #6b7280;
-}
-
-.cat-item.active .cat-name {
-  color: #ff9b7b;
-}
-
-.note-input {
-  margin-bottom: 20px;
-}
-
-.note-input input {
-  width: 100%;
-  padding: 12px 16px;
-  border: 2px solid #f3f4f6;
-  border-radius: 14px;
-  font-size: 14px;
-  outline: none;
-  transition: border-color 0.2s ease;
-}
-
-.note-input input:focus {
-  border-color: #ff9b7b;
-}
-
-.confirm-btn {
-  width: 100%;
-  padding: 16px;
-  background: linear-gradient(135deg, #ff9b7b 0%, #ff7e5f 100%);
-  color: white;
-  font-size: 16px;
-  font-weight: 700;
-  border-radius: 16px;
-  box-shadow: 0 6px 20px rgba(255, 126, 95, 0.35);
-  transition: all 0.2s ease;
-}
-
-.confirm-btn:active {
-  transform: scale(0.98);
 }
 </style>

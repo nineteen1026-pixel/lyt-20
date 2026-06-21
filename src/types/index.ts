@@ -62,6 +62,7 @@ export interface SavingState {
   wishes: Wish[]
   ownedDecorations: string[]
   activeDecorations: ActiveDecorations
+  lastMilestone: number
 }
 
 export interface ExportData extends SavingState {

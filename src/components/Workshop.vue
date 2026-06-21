@@ -43,10 +43,7 @@ function handleBuy(decoration: Decoration) {
     return
   }
   if (confirm(`确定花费 ${decoration.price} 积分购买「${decoration.name}」吗？`)) {
-    const success = store.buyDecoration(decoration)
-    if (success) {
-      // 可以加个动画效果
-    }
+    store.buyDecoration(decoration)
   }
 }
 
@@ -94,30 +91,44 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="workshop">
-    <div class="workshop-header">
-      <div class="points-card">
-        <div class="points-label">我的积分</div>
-        <div class="points-value">
-          <Sparkles class="points-icon" :size="20" />
+  <div class="px-4 pb-[100px]">
+    <div class="flex items-stretch gap-3 mb-4">
+      <div class="flex-1 bg-gradient-to-br from-warm-500 to-warm-600 rounded-[20px] p-4.5 text-white relative overflow-hidden">
+        <div class="absolute -top-5 -right-5 w-20 h-20 bg-white/15 rounded-full"></div>
+        <div class="absolute -bottom-7.5 left-[30%] w-15 h-15 bg-white/10 rounded-full"></div>
+        <div class="text-sm opacity-90 mb-1 font-medium">我的积分</div>
+        <div class="flex items-center gap-1.5 text-[28px] font-extrabold leading-tight">
+          <Sparkles class="opacity-90" :size="20" />
           {{ store.points.toFixed(0) }}
         </div>
-        <div class="points-hint">储蓄积分 = 累计收入</div>
+        <div class="text-xs opacity-80 mt-1">储蓄积分 = 累计收入</div>
       </div>
 
-      <button class="settings-btn" @click="showSettings = !showSettings">
+      <button
+        class="w-12 h-12 bg-white rounded-2xl text-gray-500 flex items-center justify-center shadow-softer transition-all duration-200 hover:text-warm-500 hover:rotate-[15deg]"
+        @click="showSettings = !showSettings"
+      >
         <Settings :size="20" />
       </button>
     </div>
 
-    <div v-if="showSettings" class="settings-panel">
-      <h4 class="settings-title">数据管理</h4>
-      <div class="settings-actions">
-        <button class="setting-btn export" @click="handleExport">
+    <div
+      v-if="showSettings"
+      class="bg-white rounded-2xl p-4 mb-4 shadow-softer animate-[slideDown_0.3s_ease]"
+    >
+      <h4 class="text-sm font-bold text-gray-700 mb-3">数据管理</h4>
+      <div class="flex gap-2.5">
+        <button
+          class="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-semibold transition-all duration-200 bg-mint-500/12 text-mint-500 hover:bg-mint-500/20"
+          @click="handleExport"
+        >
           <Download :size="18" />
           <span>导出备份</span>
         </button>
-        <button class="setting-btn import" @click="handleImportClick">
+        <button
+          class="flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl text-sm font-semibold transition-all duration-200 bg-lavender-500/12 text-lavender-500 hover:bg-lavender-500/20"
+          @click="handleImportClick"
+        >
           <Upload :size="18" />
           <span>导入备份</span>
         </button>
@@ -129,63 +140,78 @@ onMounted(() => {
           @change="handleImportFile"
         />
       </div>
-      <p class="settings-tip">
+      <p class="text-xs text-gray-400 mt-2.5 text-center">
         导出 JSON 文件保存到本地，换设备也能继续使用～
       </p>
     </div>
 
-    <div class="category-tabs">
+    <div class="flex gap-2 mb-4 bg-white p-1 rounded-xl shadow-softer">
       <button
         v-for="cat in categories"
         :key="cat.key"
-        class="tab-btn"
-        :class="{ active: activeCategory === cat.key }"
+        class="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-2 rounded-xl text-sm font-semibold text-gray-500 transition-all duration-200"
+        :class="{ 'bg-warm-50 text-warm-500 shadow-sm': activeCategory === cat.key }"
         @click="activeCategory = cat.key"
       >
-        <span class="tab-emoji">{{ cat.emoji }}</span>
+        <span class="text-base">{{ cat.emoji }}</span>
         <span>{{ cat.label }}</span>
       </button>
     </div>
 
-    <div class="decoration-grid">
+    <div class="grid grid-cols-3 gap-2.5 mb-4">
       <div
         v-for="item in filteredDecorations"
         :key="item.id"
-        class="deco-card"
+        class="bg-white rounded-2xl overflow-hidden cursor-pointer transition-all duration-250 shadow-softer border-2 border-transparent hover:translate-y-[-2px] hover:shadow-soft"
         :class="{
-          owned: isOwned(item.id),
-          active: isActiveItem(item.id),
+          'border-mint-500/30': isOwned(item.id),
+          'border-warm-500 shadow-pop': isActiveItem(item.id),
+          'animate-[decoUnlock_0.8s_ease-out]': store.recentlyUpdatedDecoration === item.id,
         }"
         @click="handleBuy(item)"
       >
-        <div class="deco-preview" :class="`type-${item.type}`">
+        <div class="aspect-square bg-gray-50 flex items-center justify-center relative overflow-hidden">
           <template v-if="item.type === 'wallpaper'">
-            <div class="preview-wallpaper" :style="{
-              background: item.style.gradient || item.style.backgroundColor,
-            }"></div>
+            <div
+              class="w-full h-full"
+              :style="{ background: item.style.gradient || item.style.backgroundColor }"
+            ></div>
           </template>
           <template v-else-if="item.type === 'floor'">
-            <div class="preview-floor" :style="{
-              backgroundColor: item.style.backgroundColor,
-            }"></div>
+            <div
+              class="w-full h-full"
+              :style="{ backgroundColor: item.style.backgroundColor }"
+            ></div>
           </template>
           <template v-else>
-            <div class="preview-item">{{ item.emoji }}</div>
+            <div
+              class="text-4xl"
+              :class="{ 'animate-[decoPop_0.5s_cubic-bezier(0.34,1.56,0.64,1)]': store.recentlyUpdatedDecoration === item.id }"
+              style="filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));"
+            >{{ item.emoji }}</div>
           </template>
+          <div
+            v-if="store.recentlyUpdatedDecoration === item.id"
+            class="absolute inset-0 pointer-events-none"
+          >
+            <div class="absolute top-2 left-2 text-xl animate-[sparkle_0.8s_ease-out]">✨</div>
+            <div class="absolute top-3 right-2 text-lg animate-[sparkle_0.8s_ease-out_0.1s]">✨</div>
+            <div class="absolute bottom-2 left-3 text-xl animate-[sparkle_0.8s_ease-out_0.2s]">✨</div>
+          </div>
         </div>
 
-        <div class="deco-info">
-          <div class="deco-name">{{ item.name }}</div>
-          <div class="deco-price">
+        <div class="p-2.5 text-center">
+          <div class="text-xs font-semibold text-gray-700 mb-1 truncate">{{ item.name }}</div>
+          <div class="text-xs">
             <template v-if="isOwned(item.id)">
-              <span v-if="isActiveItem(item.id)" class="owned-tag active-tag">
+              <span v-if="isActiveItem(item.id)" class="inline-flex items-center gap-0.5 text-warm-500 font-semibold">
                 <Check :size="12" />
                 使用中
               </span>
-              <span v-else class="owned-tag">已拥有</span>
+              <span v-else class="text-mint-500 font-semibold">已拥有</span>
             </template>
             <template v-else>
-              <span class="price-value">
+              <span class="inline-flex items-center gap-0.5 text-warm-500 font-bold">
                 <Sparkles :size="12" />
                 {{ item.price }}
               </span>
@@ -195,304 +221,59 @@ onMounted(() => {
       </div>
     </div>
 
-    <div class="workshop-tip">
+    <div class="text-center text-xs text-gray-400 px-4 py-2 bg-warm-500/8 rounded-xl">
       💡 提示：记录收入可获得等额积分，用来装饰你的小屋哦～
     </div>
   </div>
 </template>
 
-<style scoped>
-.workshop {
-  padding: 0 16px 100px;
-}
-
-.workshop-header {
-  display: flex;
-  align-items: stretch;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.points-card {
-  flex: 1;
-  background: linear-gradient(135deg, #ff9b7b 0%, #ff7e5f 100%);
-  border-radius: 20px;
-  padding: 18px 20px;
-  color: white;
-  position: relative;
-  overflow: hidden;
-}
-
-.points-card::before {
-  content: '';
-  position: absolute;
-  top: -20px;
-  right: -20px;
-  width: 80px;
-  height: 80px;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 50%;
-}
-
-.points-card::after {
-  content: '';
-  position: absolute;
-  bottom: -30px;
-  left: 30%;
-  width: 60px;
-  height: 60px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 50%;
-}
-
-.points-label {
-  font-size: 13px;
-  opacity: 0.9;
-  margin-bottom: 4px;
-  font-weight: 500;
-}
-
-.points-value {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 28px;
-  font-weight: 800;
-  line-height: 1.2;
-}
-
-.points-icon {
-  opacity: 0.9;
-}
-
-.points-hint {
-  font-size: 11px;
-  opacity: 0.8;
-  margin-top: 4px;
-}
-
-.settings-btn {
-  width: 48px;
-  height: 48px;
-  background: white;
-  border-radius: 16px;
-  color: #6b7280;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
-  transition: all 0.2s ease;
-}
-
-.settings-btn:hover {
-  color: #ff9b7b;
-  transform: rotate(15deg);
-}
-
-.settings-panel {
-  background: white;
-  border-radius: 16px;
-  padding: 16px;
-  margin-bottom: 16px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
-  animation: slideDown 0.3s ease;
-}
-
+<style>
 @keyframes slideDown {
   from { opacity: 0; transform: translateY(-10px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-.settings-title {
-  font-size: 14px;
-  font-weight: 700;
-  color: #374151;
-  margin-bottom: 12px;
+@keyframes sparkle {
+  0% {
+    opacity: 0;
+    transform: translateY(5px) scale(0.5);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-5px) scale(1.3);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-15px) scale(0.8);
+  }
 }
 
-.settings-actions {
-  display: flex;
-  gap: 10px;
+@keyframes decoUnlock {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  }
+  50% {
+    transform: scale(1.08);
+    box-shadow: 0 0 30px rgba(255, 155, 123, 0.5);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 4px 16px rgba(255, 155, 123, 0.2);
+  }
 }
 
-.setting-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 12px;
-  border-radius: 12px;
-  font-size: 13px;
-  font-weight: 600;
-  transition: all 0.2s ease;
-}
-
-.setting-btn.export {
-  background: rgba(90, 179, 126, 0.12);
-  color: #5ab37e;
-}
-
-.setting-btn.export:hover {
-  background: rgba(90, 179, 126, 0.2);
-}
-
-.setting-btn.import {
-  background: rgba(156, 125, 212, 0.12);
-  color: #9c7dd4;
-}
-
-.setting-btn.import:hover {
-  background: rgba(156, 125, 212, 0.2);
-}
-
-.settings-tip {
-  font-size: 11px;
-  color: #9ca3af;
-  margin-top: 10px;
-  text-align: center;
-}
-
-.hidden {
-  display: none;
-}
-
-.category-tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 16px;
-  background: white;
-  padding: 4px;
-  border-radius: 14px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-}
-
-.tab-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 10px 8px;
-  border-radius: 12px;
-  font-size: 13px;
-  font-weight: 600;
-  color: #6b7280;
-  transition: all 0.2s ease;
-}
-
-.tab-btn.active {
-  background: #fff8f0;
-  color: #ff9b7b;
-  box-shadow: 0 2px 6px rgba(255, 155, 123, 0.15);
-}
-
-.tab-emoji {
-  font-size: 16px;
-}
-
-.decoration-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  margin-bottom: 16px;
-}
-
-.deco-card {
-  background: white;
-  border-radius: 16px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: all 0.25s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  border: 2px solid transparent;
-}
-
-.deco-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
-}
-
-.deco-card.owned {
-  border-color: rgba(90, 179, 126, 0.3);
-}
-
-.deco-card.active {
-  border-color: #ff9b7b;
-  box-shadow: 0 4px 16px rgba(255, 155, 123, 0.2);
-}
-
-.deco-preview {
-  aspect-ratio: 1;
-  background: #f9fafb;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  overflow: hidden;
-}
-
-.preview-wallpaper {
-  width: 100%;
-  height: 100%;
-}
-
-.preview-floor {
-  width: 100%;
-  height: 100%;
-}
-
-.preview-item {
-  font-size: 36px;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
-}
-
-.deco-info {
-  padding: 10px 8px;
-  text-align: center;
-}
-
-.deco-name {
-  font-size: 12px;
-  font-weight: 600;
-  color: #374151;
-  margin-bottom: 4px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.deco-price {
-  font-size: 11px;
-}
-
-.price-value {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  color: #ff9b7b;
-  font-weight: 700;
-}
-
-.owned-tag {
-  color: #5ab37e;
-  font-weight: 600;
-  font-size: 11px;
-}
-
-.active-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  color: #ff9b7b;
-}
-
-.workshop-tip {
-  text-align: center;
-  font-size: 12px;
-  color: #9ca3af;
-  padding: 8px 16px;
-  background: rgba(255, 155, 123, 0.08);
-  border-radius: 12px;
+@keyframes decoPop {
+  0% {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.3);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 </style>

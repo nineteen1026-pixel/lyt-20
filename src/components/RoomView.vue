@@ -54,6 +54,10 @@ const floorStyle = computed(() => {
   return style
 })
 
+function isRecentlyUpdated(id: string): boolean {
+  return store.recentlyUpdatedDecoration === id
+}
+
 function getPatternImage(pattern: string): string {
   const patterns: Record<string, string> = {
     'stripe-pink': 'repeating-linear-gradient(90deg, transparent, transparent 28px, rgba(255,155,123,0.15) 28px, rgba(255,155,123,0.15) 30px)',
@@ -86,153 +90,154 @@ function getPatternSize(pattern: string): string {
 </script>
 
 <template>
-  <div class="room-container">
-    <div class="room">
-      <div class="wall" :style="wallpaperStyle">
-        <div class="wall-shadow"></div>
+  <div class="w-full flex justify-center p-4">
+    <div
+      class="w-full max-w-[380px] aspect-[4/3] rounded-[24px] overflow-hidden flex flex-col relative transition-all duration-500"
+      :class="{ 'animate-[roomGlow_2s_ease-in-out_infinite]': store.recentlyUpdatedDecoration }"
+      style="box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12), 0 8px 24px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.5);"
+    >
+      <div
+        class="flex-[0_0_65%] relative overflow-hidden transition-all duration-700 ease-out"
+        :class="{ 'animate-[wallChange_1s_ease-out]': store.recentlyUpdatedDecoration === activeWallpaper?.id }"
+        :style="wallpaperStyle"
+      >
+        <div class="absolute bottom-0 left-0 right-0 h-[30px] bg-gradient-to-b from-transparent to-black/[0.06] pointer-events-none"></div>
         <div
           v-for="item in activeItems.filter(i => (i?.position?.y ?? 100) < 55)"
           :key="item!.id"
-          class="wall-item"
+          class="absolute transform -translate-x-1/2 -translate-y-1/2 flex items-center justify-center leading-none transition-all duration-500"
+          :class="{
+            'animate-[popIn_0.5s_cubic-bezier(0.34,1.56,0.64,1)]': true,
+            'animate-[itemHighlight_1.5s_ease-in-out_infinite]': isRecentlyUpdated(item!.id),
+          }"
           :style="{
             left: `${item?.position?.x}%`,
             top: `${item?.position?.y}%`,
             width: `${item?.size?.width}px`,
             height: `${item?.size?.height}px`,
             fontSize: `${Math.min(item?.size?.width || 40, item?.size?.height || 40) * 0.85}px`,
+            filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1))',
           }"
         >
           {{ item?.emoji }}
         </div>
       </div>
 
-      <div class="floor" :style="floorStyle">
-        <div class="floor-shadow"></div>
+      <div
+        class="flex-1 relative overflow-hidden transition-all duration-700 ease-out"
+        :class="{ 'animate-[floorChange_1s_ease-out]': store.recentlyUpdatedDecoration === activeFloor?.id }"
+        :style="floorStyle"
+      >
+        <div class="absolute top-0 left-0 right-0 h-5 bg-gradient-to-b from-black/[0.08] to-transparent pointer-events-none"></div>
         <div
           v-for="item in activeItems.filter(i => (i?.position?.y ?? 0) >= 55)"
           :key="item!.id"
-          class="floor-item"
+          class="absolute transform -translate-x-1/2 flex items-center justify-center leading-none transition-all duration-500"
+          :class="{
+            'animate-[popIn_0.5s_cubic-bezier(0.34,1.56,0.64,1)]': true,
+            'animate-[itemHighlight_1.5s_ease-in-out_infinite]': isRecentlyUpdated(item!.id),
+          }"
           :style="{
             left: `${item?.position?.x}%`,
             top: `${((item?.position?.y ?? 55) - 55) * 2.2}%`,
             width: `${item?.size?.width}px`,
             height: `${item?.size?.height}px`,
             fontSize: `${Math.min(item?.size?.width || 40, item?.size?.height || 40) * 0.85}px`,
+            filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.15))',
           }"
         >
           {{ item?.emoji }}
         </div>
       </div>
+
+      <div v-if="store.recentlyUpdatedDecoration" class="absolute inset-0 pointer-events-none animate-[sparkle_1s_ease-out]">
+        <div class="absolute top-1/4 left-1/4 text-2xl animate-[sparkleFloat_1s_ease-out_forwards]">✨</div>
+        <div class="absolute top-1/3 right-1/3 text-xl animate-[sparkleFloat_1s_ease-out_0.1s_forwards]">✨</div>
+        <div class="absolute bottom-1/3 left-1/3 text-2xl animate-[sparkleFloat_1s_ease-out_0.2s_forwards]">✨</div>
+        <div class="absolute top-1/2 right-1/4 text-xl animate-[sparkleFloat_1s_ease-out_0.15s_forwards]">✨</div>
+      </div>
     </div>
   </div>
 </template>
 
-<style scoped>
-.room-container {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  padding: 16px;
-}
-
-.room {
-  width: 100%;
-  max-width: 380px;
-  aspect-ratio: 4 / 3;
-  border-radius: 24px;
-  overflow: hidden;
-  box-shadow:
-    0 20px 60px rgba(0, 0, 0, 0.12),
-    0 8px 24px rgba(0, 0, 0, 0.08),
-    inset 0 1px 0 rgba(255, 255, 255, 0.5);
-  display: flex;
-  flex-direction: column;
-  position: relative;
-}
-
-.wall {
-  flex: 0 0 65%;
-  position: relative;
-  overflow: hidden;
-}
-
-.wall-shadow {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 30px;
-  background: linear-gradient(to bottom, transparent, rgba(0, 0, 0, 0.06));
-  pointer-events: none;
-}
-
-.wall-item {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
-  animation: pop-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.floor {
-  flex: 1;
-  position: relative;
-  overflow: hidden;
-}
-
-.floor-shadow {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 20px;
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.08), transparent);
-  pointer-events: none;
-}
-
-.floor-item {
-  position: absolute;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.15));
-  animation: pop-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-@keyframes pop-in {
+<style>
+@keyframes popIn {
   0% {
     opacity: 0;
-    transform: translateX(-50%) scale(0.5);
+    transform: translateX(-50%) translateY(-50%) scale(0.5);
   }
   60% {
-    transform: translateX(-50%) scale(1.1);
+    transform: translateX(-50%) translateY(-50%) scale(1.15);
   }
   100% {
     opacity: 1;
-    transform: translateX(-50%) scale(1);
+    transform: translateX(-50%) translateY(-50%) scale(1);
   }
 }
 
-.wall-item {
-  animation-name: pop-in-wall;
+@keyframes itemHighlight {
+  0%, 100% {
+    transform: translateX(-50%) translateY(-50%) scale(1);
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+  }
+  50% {
+    transform: translateX(-50%) translateY(-50%) scale(1.15);
+    filter: drop-shadow(0 4px 12px rgba(255, 155, 123, 0.5));
+  }
 }
 
-@keyframes pop-in-wall {
+@keyframes roomGlow {
+  0%, 100% {
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12), 0 8px 24px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  }
+  50% {
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.12), 0 8px 24px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 0 40px rgba(255, 155, 123, 0.3);
+  }
+}
+
+@keyframes wallChange {
   0% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0.5);
-  }
-  60% {
-    transform: translate(-50%, -50%) scale(1.1);
+    opacity: 0.3;
+    transform: scale(1.02);
   }
   100% {
     opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
+    transform: scale(1);
+  }
+}
+
+@keyframes floorChange {
+  0% {
+    opacity: 0.3;
+    transform: scale(1.02);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes sparkle {
+  0% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes sparkleFloat {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.5);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-10px) scale(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-30px) scale(0.8);
   }
 }
 </style>

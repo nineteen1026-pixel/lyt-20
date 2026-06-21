@@ -95,64 +95,82 @@ function getWishById(id: string) {
 </script>
 
 <template>
-  <div class="wish-list">
-    <div class="section-header">
-      <h2 class="section-title">愿望清单</h2>
-      <button class="add-btn" @click="openAddModal">
+  <div class="px-4 pb-[100px]">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-xl font-bold text-gray-700">愿望清单</h2>
+      <button
+        class="flex items-center gap-1 px-3.5 py-2 bg-warm-500/15 text-warm-500 rounded-xl text-xs font-semibold transition-all duration-200 hover:bg-warm-500/25"
+        @click="openAddModal"
+      >
         <Plus :size="18" />
         <span>新愿望</span>
       </button>
     </div>
 
-    <div class="balance-hint">
+    <div class="flex items-center gap-1.5 mb-4 text-sm text-gray-500">
       <span>可用余额：</span>
-      <span class="balance-amount">¥{{ store.balance.toFixed(0) }}</span>
+      <span class="font-bold text-warm-500">¥{{ store.balance.toFixed(0) }}</span>
     </div>
 
-    <div class="wish-grid">
+    <div class="flex flex-col gap-3">
       <div
         v-for="wish in sortedWishes"
         :key="wish.id"
-        class="wish-card"
+        class="bg-white rounded-[20px] p-4 shadow-softer flex gap-3.5"
       >
-        <div class="wish-icon" :style="{ backgroundColor: getProgressColor(wish.category) + '20' }">
-          <span class="wish-emoji">{{ wish.icon }}</span>
+        <div
+          class="w-13 h-13 rounded-xl flex items-center justify-center flex-shrink-0"
+          :style="{ backgroundColor: getProgressColor(wish.category) + '20' }"
+        >
+          <span class="text-2xl">{{ wish.icon }}</span>
         </div>
-        <div class="wish-info">
-          <div class="wish-header">
-            <h3 class="wish-name">{{ wish.name }}</h3>
-            <span class="wish-cat" :style="{ color: getProgressColor(wish.category), backgroundColor: getProgressColor(wish.category) + '15' }">
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-sm font-bold text-gray-700">{{ wish.name }}</h3>
+            <span
+              class="text-xs font-semibold px-2 py-0.5 rounded-lg"
+              :style="{ color: getProgressColor(wish.category), backgroundColor: getProgressColor(wish.category) + '15' }"
+            >
               {{ getCategoryLabel(wish.category) }}
             </span>
           </div>
-          <div class="wish-progress">
-            <div class="progress-bar">
+          <div class="mb-2.5">
+            <div class="h-2 bg-gray-100 rounded-full overflow-hidden mb-1.5">
               <div
-                class="progress-fill"
+                class="h-full rounded-full transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
                 :style="{
                   width: Math.min((wish.currentAmount / wish.targetAmount) * 100, 100) + '%',
                   backgroundColor: getProgressColor(wish.category),
                 }"
               ></div>
             </div>
-            <div class="progress-text">
+            <div class="flex justify-between text-xs text-gray-400">
               <span>¥{{ wish.currentAmount.toFixed(0) }}</span>
               <span>/ ¥{{ wish.targetAmount.toFixed(0) }}</span>
             </div>
-            <div class="progress-percent" :style="{ color: getProgressColor(wish.category) }">
+            <div class="text-right text-xs font-bold mt-0.5" :style="{ color: getProgressColor(wish.category) }">
               {{ Math.round((wish.currentAmount / wish.targetAmount) * 100) }}%
             </div>
           </div>
-          <div class="wish-actions">
-            <button class="action-btn deposit" @click="openDepositModal(wish.id)">
+          <div class="flex gap-2">
+            <button
+              class="flex-1 flex items-center justify-center gap-1 px-2.5 py-2 rounded-lg text-xs font-semibold transition-all duration-200 bg-mint-500/12 text-mint-500 hover:bg-mint-500/20"
+              @click="openDepositModal(wish.id)"
+            >
               <Plus :size="14" />
               存入
             </button>
-            <button class="action-btn withdraw" @click="handleWithdraw(wish.id)">
+            <button
+              class="flex-1 flex items-center justify-center gap-1 px-2.5 py-2 rounded-lg text-xs font-semibold transition-all duration-200 bg-amber-500/12 text-amber-500 hover:bg-amber-500/20"
+              @click="handleWithdraw(wish.id)"
+            >
               <ChevronDown :size="14" />
               取出
             </button>
-            <button class="action-btn delete" @click="handleDeleteWish(wish.id)">
+            <button
+              class="w-auto px-2 py-2 rounded-lg text-xs font-semibold transition-all duration-200 bg-red-50 text-red-500 hover:bg-red-100"
+              @click="handleDeleteWish(wish.id)"
+            >
               <Trash2 :size="14" />
             </button>
           </div>
@@ -160,97 +178,122 @@ function getWishById(id: string) {
       </div>
     </div>
 
-    <div v-if="store.wishes.length === 0" class="empty-state">
-      <div class="empty-icon">🌟</div>
-      <div class="empty-text">还没有愿望，添加一个吧</div>
-      <div class="empty-hint">为喜欢的东西攒钱更有动力</div>
+    <div v-if="store.wishes.length === 0" class="text-center py-10 px-5">
+      <div class="text-5xl mb-3">🌟</div>
+      <div class="text-gray-500 text-sm font-semibold mb-1">还没有愿望，添加一个吧</div>
+      <div class="text-gray-400 text-xs">为喜欢的东西攒钱更有动力</div>
     </div>
 
-    <div v-if="showAddModal" class="modal-overlay" @click.self="showAddModal = false">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>添加新愿望</h3>
-          <button class="close-btn" @click="showAddModal = false">×</button>
+    <div v-if="showAddModal" class="fixed inset-0 bg-black/40 z-[1000] flex items-end justify-center animate-[fadeIn_0.2s_ease]" @click.self="showAddModal = false">
+      <div class="w-full max-w-[480px] bg-white rounded-t-[24px] p-5 animate-[slideUp_0.3s_cubic-bezier(0.34,1.56,0.64,1)]">
+        <div class="flex items-center justify-between mb-5">
+          <h3 class="text-lg font-bold text-gray-700">添加新愿望</h3>
+          <button class="w-8 h-8 rounded-full bg-gray-100 text-gray-500 text-xl flex items-center justify-center" @click="showAddModal = false">×</button>
         </div>
 
-        <div class="icon-picker">
+        <div class="flex flex-wrap gap-2 mb-5 justify-center">
           <button
             v-for="icon in iconOptions"
             :key="icon"
-            class="icon-option"
-            :class="{ active: selectedIcon === icon }"
+            class="w-11 h-11 rounded-xl text-2xl flex items-center justify-center bg-gray-50 transition-all duration-200"
+            :class="{ 'bg-warm-50 shadow-[inset_0_0_0_2px_#ff9b7b] scale-110': selectedIcon === icon }"
             @click="selectedIcon = icon"
           >
             {{ icon }}
           </button>
         </div>
 
-        <div class="form-group">
-          <label>愿望名称</label>
-          <input v-model="newWishName" type="text" placeholder="比如：小钻戒" />
+        <div class="mb-4">
+          <label class="block text-sm font-semibold text-gray-500 mb-2">愿望名称</label>
+          <input
+            v-model="newWishName"
+            type="text"
+            placeholder="比如：小钻戒"
+            class="w-full py-3 px-4 border-2 border-gray-100 rounded-xl text-sm outline-none transition-colors duration-200 focus:border-warm-500"
+          />
         </div>
 
-        <div class="form-group">
-          <label>目标金额</label>
-          <div class="amount-input">
-            <span class="currency">¥</span>
-            <input v-model="newWishTarget" type="number" placeholder="0" />
+        <div class="mb-4">
+          <label class="block text-sm font-semibold text-gray-500 mb-2">目标金额</label>
+          <div class="flex items-center gap-2 py-3 px-4 bg-gray-50 border-2 border-gray-100 rounded-xl transition-colors duration-200 focus-within:border-warm-500">
+            <span class="text-lg font-bold text-gray-700">¥</span>
+            <input
+              v-model="newWishTarget"
+              type="number"
+              placeholder="0"
+              class="flex-1 text-lg font-bold border-none bg-transparent outline-none text-gray-700 p-0 w-auto"
+            />
           </div>
         </div>
 
-        <div class="form-group">
-          <label>分类</label>
-          <div class="cat-selector">
+        <div class="mb-5">
+          <label class="block text-sm font-semibold text-gray-500 mb-2">分类</label>
+          <div class="flex gap-2.5">
             <button
               v-for="cat in wishCategories"
               :key="cat.key"
-              class="cat-chip"
-              :class="{ active: newWishCategory === cat.key }"
+              class="flex-1 flex flex-col items-center gap-1 py-3 px-2 rounded-xl bg-gray-50 transition-all duration-200 text-xs font-semibold text-gray-500"
+              :class="{ 'text-warm-500': newWishCategory === cat.key }"
               :style="newWishCategory === cat.key ? { backgroundColor: getProgressColor(cat.key) + '20', color: getProgressColor(cat.key) } : {}"
               @click="newWishCategory = cat.key"
             >
-              <span class="cat-emoji">{{ cat.emoji }}</span>
+              <span class="text-xl">{{ cat.emoji }}</span>
               <span>{{ cat.label }}</span>
             </button>
           </div>
         </div>
 
-        <button class="confirm-btn" @click="handleAddWish">
+        <button
+          class="w-full py-4 bg-gradient-to-br from-warm-500 to-warm-600 text-white text-base font-bold rounded-xl shadow-pop transition-all duration-200 active:scale-[0.98]"
+          @click="handleAddWish"
+        >
           创建愿望
         </button>
       </div>
     </div>
 
-    <div v-if="showDepositModal" class="modal-overlay" @click.self="showDepositModal = false">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h3>存入愿望</h3>
-          <button class="close-btn" @click="showDepositModal = false">×</button>
+    <div v-if="showDepositModal" class="fixed inset-0 bg-black/40 z-[1000] flex items-end justify-center animate-[fadeIn_0.2s_ease]" @click.self="showDepositModal = false">
+      <div class="w-full max-w-[480px] bg-white rounded-t-[24px] p-5 animate-[slideUp_0.3s_cubic-bezier(0.34,1.56,0.64,1)]">
+        <div class="flex items-center justify-between mb-5">
+          <h3 class="text-lg font-bold text-gray-700">存入愿望</h3>
+          <button class="w-8 h-8 rounded-full bg-gray-100 text-gray-500 text-xl flex items-center justify-center" @click="showDepositModal = false">×</button>
         </div>
 
-        <div v-if="depositWishId && getWishById(depositWishId)" class="deposit-wish-info">
-          <span class="wish-icon-sm">{{ getWishById(depositWishId)?.icon }}</span>
+        <div
+          v-if="depositWishId && getWishById(depositWishId)"
+          class="flex items-center gap-3 p-3.5 bg-gray-50 rounded-xl mb-5"
+        >
+          <span class="text-3xl">{{ getWishById(depositWishId)?.icon }}</span>
           <div>
-            <div class="wish-name">{{ getWishById(depositWishId)?.name }}</div>
-            <div class="wish-balance">
+            <div class="font-semibold text-gray-700">{{ getWishById(depositWishId)?.name }}</div>
+            <div class="text-xs text-gray-400 mt-0.5">
               当前：¥{{ getWishById(depositWishId)?.currentAmount.toFixed(0) }} / ¥{{ getWishById(depositWishId)?.targetAmount.toFixed(0) }}
             </div>
           </div>
         </div>
 
-        <div class="form-group">
-          <label>存入金额</label>
-          <div class="amount-input">
-            <span class="currency">¥</span>
-            <input v-model="depositAmount" type="number" placeholder="0" autofocus />
+        <div class="mb-4">
+          <label class="block text-sm font-semibold text-gray-500 mb-2">存入金额</label>
+          <div class="flex items-center gap-2 py-3 px-4 bg-gray-50 border-2 border-gray-100 rounded-xl transition-colors duration-200 focus-within:border-warm-500">
+            <span class="text-lg font-bold text-gray-700">¥</span>
+            <input
+              v-model="depositAmount"
+              type="number"
+              placeholder="0"
+              autofocus
+              class="flex-1 text-lg font-bold border-none bg-transparent outline-none text-gray-700 p-0 w-auto"
+            />
           </div>
         </div>
 
-        <div class="deposit-hint">
+        <div class="text-center text-xs text-gray-400 mb-4">
           可用余额：¥{{ store.balance.toFixed(0) }}
         </div>
 
-        <button class="confirm-btn" @click="handleDeposit">
+        <button
+          class="w-full py-4 bg-gradient-to-br from-warm-500 to-warm-600 text-white text-base font-bold rounded-xl shadow-pop transition-all duration-200 active:scale-[0.98]"
+          @click="handleDeposit"
+        >
           确认存入
         </button>
       </div>
@@ -258,420 +301,14 @@ function getWishById(id: string) {
   </div>
 </template>
 
-<style scoped>
-.wish-list {
-  padding: 0 16px 100px;
-}
-
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.section-title {
-  font-size: 20px;
-  font-weight: 700;
-  color: #374151;
-}
-
-.add-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 8px 14px;
-  background: rgba(255, 155, 123, 0.15);
-  color: #ff9b7b;
-  border-radius: 12px;
-  font-size: 13px;
-  font-weight: 600;
-  transition: all 0.2s ease;
-}
-
-.add-btn:hover {
-  background: rgba(255, 155, 123, 0.25);
-}
-
-.balance-hint {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 16px;
-  font-size: 13px;
-  color: #6b7280;
-}
-
-.balance-amount {
-  font-weight: 700;
-  color: #ff9b7b;
-}
-
-.wish-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.wish-card {
-  background: white;
-  border-radius: 20px;
-  padding: 16px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
-  display: flex;
-  gap: 14px;
-}
-
-.wish-icon {
-  width: 52px;
-  height: 52px;
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.wish-emoji {
-  font-size: 26px;
-}
-
-.wish-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.wish-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.wish-name {
-  font-size: 15px;
-  font-weight: 700;
-  color: #374151;
-}
-
-.wish-cat {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 8px;
-}
-
-.wish-progress {
-  margin-bottom: 10px;
-}
-
-.progress-bar {
-  height: 8px;
-  background: #f3f4f6;
-  border-radius: 4px;
-  overflow: hidden;
-  margin-bottom: 6px;
-}
-
-.progress-fill {
-  height: 100%;
-  border-radius: 4px;
-  transition: width 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.progress-text {
-  display: flex;
-  justify-content: space-between;
-  font-size: 12px;
-  color: #9ca3af;
-}
-
-.progress-percent {
-  font-size: 11px;
-  font-weight: 700;
-  text-align: right;
-  margin-top: 2px;
-}
-
-.wish-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.action-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  font-size: 12px;
-  font-weight: 600;
-  transition: all 0.2s ease;
-}
-
-.action-btn.deposit {
-  background: rgba(90, 179, 126, 0.12);
-  color: #5ab37e;
-}
-
-.action-btn.deposit:hover {
-  background: rgba(90, 179, 126, 0.2);
-}
-
-.action-btn.withdraw {
-  background: rgba(251, 191, 36, 0.12);
-  color: #f59e0b;
-}
-
-.action-btn.withdraw:hover {
-  background: rgba(251, 191, 36, 0.2);
-}
-
-.action-btn.delete {
-  flex: none;
-  width: auto;
-  padding: 8px;
-  background: #fef2f2;
-  color: #ef4444;
-}
-
-.action-btn.delete:hover {
-  background: #fee2e2;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 40px 20px;
-}
-
-.empty-icon {
-  font-size: 48px;
-  margin-bottom: 12px;
-}
-
-.empty-text {
-  color: #6b7280;
-  font-size: 14px;
-  font-weight: 600;
-  margin-bottom: 4px;
-}
-
-.empty-hint {
-  color: #9ca3af;
-  font-size: 12px;
-}
-
-.modal-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  z-index: 1000;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  animation: fadeIn 0.2s ease;
-}
-
+<style>
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
 }
 
-.modal-content {
-  width: 100%;
-  max-width: 480px;
-  background: white;
-  border-radius: 24px 24px 0 0;
-  padding: 20px;
-  animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
 @keyframes slideUp {
   from { transform: translateY(100%); }
   to { transform: translateY(0); }
-}
-
-.modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 20px;
-}
-
-.modal-header h3 {
-  font-size: 18px;
-  font-weight: 700;
-  color: #374151;
-}
-
-.close-btn {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: #f3f4f6;
-  color: #6b7280;
-  font-size: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.icon-picker {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 20px;
-  justify-content: center;
-}
-
-.icon-option {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  font-size: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #f9fafb;
-  transition: all 0.2s ease;
-}
-
-.icon-option.active {
-  background: #fff8f0;
-  box-shadow: inset 0 0 0 2px #ff9b7b;
-  transform: scale(1.1);
-}
-
-.form-group {
-  margin-bottom: 16px;
-}
-
-.form-group label {
-  display: block;
-  font-size: 13px;
-  font-weight: 600;
-  color: #6b7280;
-  margin-bottom: 8px;
-}
-
-.form-group input[type="text"],
-.form-group input[type="number"] {
-  width: 100%;
-  padding: 12px 16px;
-  border: 2px solid #f3f4f6;
-  border-radius: 14px;
-  font-size: 14px;
-  outline: none;
-  transition: border-color 0.2s ease;
-}
-
-.form-group input:focus {
-  border-color: #ff9b7b;
-}
-
-.amount-input {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  background: #f9fafb;
-  border: 2px solid #f3f4f6;
-  border-radius: 14px;
-  transition: border-color 0.2s ease;
-}
-
-.amount-input:focus-within {
-  border-color: #ff9b7b;
-}
-
-.amount-input .currency {
-  font-size: 18px;
-  font-weight: 700;
-  color: #374151;
-}
-
-.amount-input input {
-  flex: 1;
-  font-size: 20px;
-  font-weight: 700;
-  border: none;
-  background: transparent;
-  outline: none;
-  color: #374151;
-  padding: 0;
-  width: auto;
-}
-
-.cat-selector {
-  display: flex;
-  gap: 10px;
-}
-
-.cat-chip {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  padding: 12px 8px;
-  border-radius: 14px;
-  background: #f9fafb;
-  transition: all 0.2s ease;
-  font-size: 12px;
-  font-weight: 600;
-  color: #6b7280;
-}
-
-.cat-chip.active {
-  color: #ff9b7b;
-}
-
-.cat-emoji {
-  font-size: 20px;
-}
-
-.deposit-wish-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px;
-  background: #f9fafb;
-  border-radius: 14px;
-  margin-bottom: 20px;
-}
-
-.wish-icon-sm {
-  font-size: 32px;
-}
-
-.wish-balance {
-  font-size: 12px;
-  color: #9ca3af;
-  margin-top: 2px;
-}
-
-.deposit-hint {
-  text-align: center;
-  font-size: 12px;
-  color: #9ca3af;
-  margin-bottom: 16px;
-}
-
-.confirm-btn {
-  width: 100%;
-  padding: 16px;
-  background: linear-gradient(135deg, #ff9b7b 0%, #ff7e5f 100%);
-  color: white;
-  font-size: 16px;
-  font-weight: 700;
-  border-radius: 16px;
-  box-shadow: 0 6px 20px rgba(255, 126, 95, 0.35);
-  transition: all 0.2s ease;
-}
-
-.confirm-btn:active {
-  transform: scale(0.98);
 }
 </style>
