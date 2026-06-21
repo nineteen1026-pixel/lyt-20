@@ -8,25 +8,26 @@ import BottomNav from '@/components/BottomNav.vue'
 import AccountBook from '@/components/AccountBook.vue'
 import WishList from '@/components/WishList.vue'
 import Workshop from '@/components/Workshop.vue'
+import RecurringBills from '@/components/RecurringBills.vue'
 import type { SavingEvent } from '@/stores/saving'
 
 const store = useSavingStore()
 const { loadCategories } = useCategories()
 const { loadDecorations } = useDecorations()
 
-const activeTab = ref<'account' | 'wish' | 'workshop'>('account')
+const activeTab = ref<'account' | 'wish' | 'workshop' | 'recurring'>('account')
 const showPanel = ref(false)
 const displayedBalance = ref(0)
 const displayedPoints = ref(0)
 const displayedIncome = ref(0)
 const displayedExpense = ref(0)
 
-const tabs = ['account', 'wish', 'workshop'] as const
+const tabs = ['account', 'wish', 'workshop', 'recurring'] as const
 const activeIndex = computed(() => tabs.indexOf(activeTab.value))
 
 const visibleEvents = computed(() => store.recentEvents.slice(0, 3))
 
-function handleTabChange(tab: 'account' | 'wish' | 'workshop') {
+function handleTabChange(tab: 'account' | 'wish' | 'workshop' | 'recurring') {
   activeTab.value = tab
   showPanel.value = true
 }
@@ -116,6 +117,7 @@ onMounted(async () => {
 
   loadCategories()
   loadDecorations()
+  store.checkAndRecordRecurringBills()
 })
 </script>
 
@@ -176,30 +178,44 @@ onMounted(async () => {
           </div>
         </div>
 
-        <div class="flex gap-2.5 px-4 pb-4">
+        <div class="grid grid-cols-4 gap-2 px-4 pb-4">
           <button
-            class="flex-1 flex flex-col items-center gap-1.5 p-3.5 bg-white rounded-2xl transition-all duration-250 shadow-softer hover:translate-y-[-2px] hover:shadow-soft active:scale-95"
+            class="flex flex-col items-center gap-1.5 p-3 bg-white rounded-2xl transition-all duration-250 shadow-softer hover:translate-y-[-2px] hover:shadow-soft active:scale-95"
             :class="{ 'bg-warm-50 shadow-pop': activeTab === 'account' && showPanel }"
             @click="handleTabChange('account')"
           >
-            <span class="text-2xl">📒</span>
-            <span class="text-xs font-semibold" :class="activeTab === 'account' && showPanel ? 'text-warm-500' : 'text-gray-500'">资金簿</span>
+            <span class="text-xl">📒</span>
+            <span class="text-[11px] font-semibold" :class="activeTab === 'account' && showPanel ? 'text-warm-500' : 'text-gray-500'">资金簿</span>
           </button>
           <button
-            class="flex-1 flex flex-col items-center gap-1.5 p-3.5 bg-white rounded-2xl transition-all duration-250 shadow-softer hover:translate-y-[-2px] hover:shadow-soft active:scale-95"
+            class="flex flex-col items-center gap-1.5 p-3 bg-white rounded-2xl transition-all duration-250 shadow-softer hover:translate-y-[-2px] hover:shadow-soft active:scale-95 relative"
+            :class="{ 'bg-warm-50 shadow-pop': activeTab === 'recurring' && showPanel }"
+            @click="handleTabChange('recurring')"
+          >
+            <span class="text-xl">🔄</span>
+            <span class="text-[11px] font-semibold" :class="activeTab === 'recurring' && showPanel ? 'text-warm-500' : 'text-gray-500'">周期账单</span>
+            <span
+              v-if="store.overdueBills.length > 0"
+              class="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1"
+            >
+              {{ store.overdueBills.length }}
+            </span>
+          </button>
+          <button
+            class="flex flex-col items-center gap-1.5 p-3 bg-white rounded-2xl transition-all duration-250 shadow-softer hover:translate-y-[-2px] hover:shadow-soft active:scale-95"
             :class="{ 'bg-warm-50 shadow-pop': activeTab === 'wish' && showPanel }"
             @click="handleTabChange('wish')"
           >
-            <span class="text-2xl">🌟</span>
-            <span class="text-xs font-semibold" :class="activeTab === 'wish' && showPanel ? 'text-warm-500' : 'text-gray-500'">愿望清单</span>
+            <span class="text-xl">🌟</span>
+            <span class="text-[11px] font-semibold" :class="activeTab === 'wish' && showPanel ? 'text-warm-500' : 'text-gray-500'">愿望清单</span>
           </button>
           <button
-            class="flex-1 flex flex-col items-center gap-1.5 p-3.5 bg-white rounded-2xl transition-all duration-250 shadow-softer hover:translate-y-[-2px] hover:shadow-soft active:scale-95"
+            class="flex flex-col items-center gap-1.5 p-3 bg-white rounded-2xl transition-all duration-250 shadow-softer hover:translate-y-[-2px] hover:shadow-soft active:scale-95"
             :class="{ 'bg-warm-50 shadow-pop': activeTab === 'workshop' && showPanel }"
             @click="handleTabChange('workshop')"
           >
-            <span class="text-2xl">🎨</span>
-            <span class="text-xs font-semibold" :class="activeTab === 'workshop' && showPanel ? 'text-warm-500' : 'text-gray-500'">装修工坊</span>
+            <span class="text-xl">🎨</span>
+            <span class="text-[11px] font-semibold" :class="activeTab === 'workshop' && showPanel ? 'text-warm-500' : 'text-gray-500'">装修工坊</span>
           </button>
         </div>
 
@@ -240,7 +256,8 @@ onMounted(async () => {
         <div v-if="showPanel" class="fixed left-1/2 -translate-x-1/2 bottom-0 w-full max-w-[480px] max-h-[75vh] bg-warm-50 rounded-t-[28px] z-95 flex flex-col pb-20">
           <div class="w-10 h-1 bg-gray-200 rounded my-2.5 mx-auto flex-shrink-0 cursor-pointer" @click="closePanel"></div>
           <div class="flex-1 overflow-y-auto -webkit-overflow-scrolling-touch">
-            <AccountBook v-if="activeTab === 'account'" />
+            <AccountBook v-if="activeTab === 'account'" @goto-recurring="handleTabChange('recurring')" />
+            <RecurringBills v-else-if="activeTab === 'recurring'" />
             <WishList v-else-if="activeTab === 'wish'" />
             <Workshop v-else-if="activeTab === 'workshop'" />
           </div>
@@ -249,6 +266,7 @@ onMounted(async () => {
 
       <BottomNav
         :active-tab="activeTab"
+        :overdue-count="store.overdueBills.length"
         @update:active-tab="handleTabChange"
         @add-transaction="handleAddTransaction"
       />

@@ -7,6 +7,8 @@ import type {
   ActiveDecorations,
   TransactionType,
   ExportData,
+  RecurringBill,
+  RecurrenceCycle,
 } from '@/types'
 import { saveToStorage, loadFromStorage } from '@/utils/storage'
 import { validateImportData } from '@/utils/export'
@@ -32,6 +34,8 @@ const initialState = {
     items: [] as string[],
   } as ActiveDecorations,
   lastMilestone: 0,
+  recurringBills: [] as RecurringBill[],
+  lastRecurringCheckDate: '',
 }
 
 const milestones = [100, 500, 1000, 2000, 5000, 10000, 20000, 50000]
@@ -44,6 +48,8 @@ export const useSavingStore = defineStore('saving', () => {
   const ownedDecorations = ref<string[]>(initialState.ownedDecorations)
   const activeDecorations = ref<ActiveDecorations>(initialState.activeDecorations)
   const lastMilestone = ref(initialState.lastMilestone)
+  const recurringBills = ref<RecurringBill[]>(initialState.recurringBills)
+  const lastRecurringCheckDate = ref(initialState.lastRecurringCheckDate)
   const recentEvents = ref<SavingEvent[]>([])
   const recentlyUpdatedDecoration = ref<string | null>(null)
   const pointsAnimation = ref({ show: false, amount: 0, startX: 0, startY: 0 })
@@ -83,6 +89,215 @@ export const useSavingStore = defineStore('saving', () => {
     const progress = ((points.value - prev) / (next - prev)) * 100
     return Math.min(100, Math.max(0, progress))
   })
+
+  const activeRecurringBills = computed(() => {
+    return recurringBills.value.filter(bill => bill.isActive)
+  })
+
+  const upcomingBills = computed(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const nextWeek = new Date(today)
+    nextWeek.setDate(nextWeek.getDate() + 7)
+
+    return activeRecurringBills.value
+      .filter(bill => {
+        const dueDate = new Date(bill.nextDueDate)
+        return dueDate >= today && dueDate <= nextWeek
+      })
+      .sort((a, b) => new Date(a.nextDueDate).getTime() - new Date(b.nextDueDate).getTime())
+  })
+
+  const overdueBills = computed(() => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    return activeRecurringBills.value
+      .filter(bill => {
+        const dueDate = new Date(bill.nextDueDate)
+        return dueDate < today
+      })
+      .sort((a, b) => new Date(a.nextDueDate).getTime() - new Date(b.nextDueDate).getTime())
+  })
+
+  const monthlyRecurringExpense = computed(() => {
+    return activeRecurringBills.value
+      .filter(bill => bill.type === 'expense')
+      .reduce((sum, bill) => sum + bill.amount, 0)
+  })
+
+  const monthlyRecurringIncome = computed(() => {
+    return activeRecurringBills.value
+      .filter(bill => bill.type === 'income')
+      .reduce((sum, bill) => sum + bill.amount, 0)
+  })
+
+  function calculateNextDueDate(startDate: string, cycle: RecurrenceCycle): string {
+    const date = new Date(startDate)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    let nextDate = new Date(date)
+    nextDate.setHours(0, 0, 0, 0)
+
+    while (nextDate < today) {
+      switch (cycle) {
+        case 'daily':
+          nextDate.setDate(nextDate.getDate() + 1)
+          break
+        case 'weekly':
+          nextDate.setDate(nextDate.getDate() + 7)
+          break
+        case 'monthly':
+          nextDate.setMonth(nextDate.getMonth() + 1)
+          break
+        case 'yearly':
+          nextDate.setFullYear(nextDate.getFullYear() + 1)
+          break
+      }
+    }
+
+    return nextDate.toISOString().split('T')[0]
+  }
+
+  function getDaysUntilDue(dueDate: string): number {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const due = new Date(dueDate)
+    due.setHours(0, 0, 0, 0)
+    const diffTime = due.getTime() - today.getTime()
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  }
+
+  function addRecurringBill(
+    name: string,
+    amount: number,
+    categoryId: string,
+    type: TransactionType,
+    cycle: RecurrenceCycle,
+    startDate: string,
+    note: string,
+    remindDaysBefore: number,
+    autoRecord: boolean,
+    endDate?: string
+  ) {
+    const nextDueDate = calculateNextDueDate(startDate, cycle)
+    const bill: RecurringBill = {
+      id: `rb-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name,
+      amount,
+      categoryId,
+      type,
+      cycle,
+      startDate,
+      nextDueDate,
+      endDate,
+      note,
+      isActive: true,
+      remindDaysBefore,
+      autoRecord,
+      createdAt: new Date().toISOString().split('T')[0],
+    }
+    recurringBills.value.push(bill)
+    addEvent({
+      type: 'wish',
+      message: `🔄 新增周期性账单「${name}」，${cycle === 'daily' ? '每天' : cycle === 'weekly' ? '每周' : cycle === 'monthly' ? '每月' : '每年'} ¥${amount}`,
+    })
+    return bill
+  }
+
+  function updateRecurringBill(id: string, updates: Partial<RecurringBill>) {
+    const bill = recurringBills.value.find(b => b.id === id)
+    if (!bill) return
+
+    if (updates.startDate || updates.cycle) {
+      const newStartDate = updates.startDate || bill.startDate
+      const newCycle = updates.cycle || bill.cycle
+      updates.nextDueDate = calculateNextDueDate(newStartDate, newCycle)
+    }
+
+    Object.assign(bill, updates)
+  }
+
+  function deleteRecurringBill(id: string) {
+    const idx = recurringBills.value.findIndex(b => b.id === id)
+    if (idx === -1) return
+    recurringBills.value.splice(idx, 1)
+  }
+
+  function toggleRecurringBill(id: string) {
+    const bill = recurringBills.value.find(b => b.id === id)
+    if (!bill) return
+    bill.isActive = !bill.isActive
+  }
+
+  function checkAndRecordRecurringBills() {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const todayStr = today.toISOString().split('T')[0]
+
+    if (lastRecurringCheckDate.value === todayStr) return
+
+    const billsToRecord: RecurringBill[] = []
+
+    for (const bill of activeRecurringBills.value) {
+      if (!bill.autoRecord) continue
+
+      let dueDate = new Date(bill.nextDueDate)
+      dueDate.setHours(0, 0, 0, 0)
+
+      while (dueDate <= today) {
+        if (bill.endDate) {
+          const endDate = new Date(bill.endDate)
+          endDate.setHours(0, 0, 0, 0)
+          if (dueDate > endDate) {
+            bill.isActive = false
+            break
+          }
+        }
+
+        billsToRecord.push(bill)
+
+        switch (bill.cycle) {
+          case 'daily':
+            dueDate.setDate(dueDate.getDate() + 1)
+            break
+          case 'weekly':
+            dueDate.setDate(dueDate.getDate() + 7)
+            break
+          case 'monthly':
+            dueDate.setMonth(dueDate.getMonth() + 1)
+            break
+          case 'yearly':
+            dueDate.setFullYear(dueDate.getFullYear() + 1)
+            break
+        }
+      }
+
+      bill.nextDueDate = dueDate.toISOString().split('T')[0]
+      bill.lastRecordedDate = todayStr
+    }
+
+    for (const bill of billsToRecord) {
+      addTransaction(
+        bill.type,
+        bill.amount,
+        bill.categoryId,
+        `${bill.name}（自动记账）${bill.note ? ' - ' + bill.note : ''}`
+      )
+      addEvent({
+        type: bill.type,
+        amount: bill.amount,
+        message: `🔄 周期性账单「${bill.name}」自动${bill.type === 'income' ? '入账' : '扣费'} ¥${bill.amount}`,
+      })
+    }
+
+    lastRecurringCheckDate.value = todayStr
+  }
+
+  function getRecurringBillsByCategory(categoryId: string) {
+    return recurringBills.value.filter(bill => bill.categoryId === categoryId)
+  }
 
   function addEvent(event: Omit<SavingEvent, 'timestamp'>) {
     const fullEvent: SavingEvent = {
@@ -295,6 +510,8 @@ export const useSavingStore = defineStore('saving', () => {
     if (Array.isArray(data.ownedDecorations)) ownedDecorations.value = data.ownedDecorations
     if (data.activeDecorations) activeDecorations.value = { ...initialState.activeDecorations, ...data.activeDecorations }
     if (typeof data.lastMilestone === 'number') lastMilestone.value = data.lastMilestone
+    if (Array.isArray(data.recurringBills)) recurringBills.value = data.recurringBills
+    if (typeof data.lastRecurringCheckDate === 'string') lastRecurringCheckDate.value = data.lastRecurringCheckDate
   }
 
   function importData(data: ExportData): boolean {
@@ -312,6 +529,8 @@ export const useSavingStore = defineStore('saving', () => {
       ownedDecorations: ownedDecorations.value,
       activeDecorations: activeDecorations.value,
       lastMilestone: lastMilestone.value,
+      recurringBills: recurringBills.value,
+      lastRecurringCheckDate: lastRecurringCheckDate.value,
       version: '1.0.0',
       exportedAt: new Date().toISOString(),
     }
@@ -325,6 +544,8 @@ export const useSavingStore = defineStore('saving', () => {
     ownedDecorations: ownedDecorations.value,
     activeDecorations: activeDecorations.value,
     lastMilestone: lastMilestone.value,
+    recurringBills: recurringBills.value,
+    lastRecurringCheckDate: lastRecurringCheckDate.value,
   }))
 
   watch(
@@ -350,6 +571,8 @@ export const useSavingStore = defineStore('saving', () => {
     ownedDecorations,
     activeDecorations,
     lastMilestone,
+    recurringBills,
+    lastRecurringCheckDate,
     recentEvents,
     recentlyUpdatedDecoration,
     pointsAnimation,
@@ -357,6 +580,11 @@ export const useSavingStore = defineStore('saving', () => {
     monthlyExpense,
     nextMilestone,
     milestoneProgress,
+    activeRecurringBills,
+    upcomingBills,
+    overdueBills,
+    monthlyRecurringExpense,
+    monthlyRecurringIncome,
     addTransaction,
     deleteTransaction,
     addWish,
@@ -367,6 +595,14 @@ export const useSavingStore = defineStore('saving', () => {
     toggleDecorationItem,
     setActiveWallpaper,
     setActiveFloor,
+    addRecurringBill,
+    updateRecurringBill,
+    deleteRecurringBill,
+    toggleRecurringBill,
+    checkAndRecordRecurringBills,
+    calculateNextDueDate,
+    getDaysUntilDue,
+    getRecurringBillsByCategory,
     loadInitialData,
     importData,
     getExportState,

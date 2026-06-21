@@ -50,6 +50,7 @@ export function validateImportData(data: unknown): data is ExportData {
     Array.isArray(d.wishes) &&
     Array.isArray(d.ownedDecorations) &&
     typeof d.activeDecorations === 'object' &&
-    d.activeDecorations !== null
+    d.activeDecorations !== null &&
+    Array.isArray(d.recurringBills)
   )
 }

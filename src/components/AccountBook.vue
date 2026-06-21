@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { Trash2, Plus, Minus } from 'lucide-vue-next'
+import { Trash2, Plus, Minus, Repeat } from 'lucide-vue-next'
 import { useSavingStore } from '@/stores/saving'
 import { useCategories } from '@/composables/useCategories'
 import { getIconComponent } from '@/utils/iconMap'
 import type { TransactionType } from '@/types'
+
+const emit = defineEmits<{
+  (e: 'goto-recurring'): void
+}>()
 
 const store = useSavingStore()
 const { getCategoryById, getCategoriesByType } = useCategories()
@@ -96,6 +100,38 @@ function handleDelete(id: string) {
       <div class="bg-white rounded-2xl p-3.5 text-center shadow-softer">
         <div class="text-xs text-gray-400 mb-1">结余</div>
         <div class="text-base font-bold text-lavender-500">¥{{ (store.monthlyIncome - store.monthlyExpense).toFixed(0) }}</div>
+      </div>
+    </div>
+
+    <div
+      v-if="store.recurringBills.length > 0"
+      class="bg-gradient-to-r from-lavender-50 to-lavender-100 rounded-2xl p-4 mb-4 cursor-pointer hover:shadow-soft transition-all active:scale-[0.99]"
+      @click="emit('goto-recurring')"
+    >
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm">
+            <Repeat :size="20" class="text-lavender-500" />
+          </div>
+          <div>
+            <div class="text-sm font-bold text-gray-700">周期性账单</div>
+            <div class="text-xs text-gray-500">
+              月均支出 ¥{{ store.monthlyRecurringExpense.toFixed(0) }}
+              <span v-if="store.monthlyRecurringIncome > 0">
+                · 月均收入 ¥{{ store.monthlyRecurringIncome.toFixed(0) }}
+              </span>
+            </div>
+          </div>
+        </div>
+        <div class="text-right">
+          <div v-if="store.overdueBills.length > 0" class="text-xs font-bold text-red-500">
+            {{ store.overdueBills.length }} 笔逾期
+          </div>
+          <div v-else-if="store.upcomingBills.length > 0" class="text-xs font-bold text-amber-500">
+            {{ store.upcomingBills.length }} 笔即将到期
+          </div>
+          <div v-else class="text-xs text-gray-400">运行正常</div>
+        </div>
       </div>
     </div>
 

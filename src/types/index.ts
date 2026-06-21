@@ -55,6 +55,26 @@ export interface ActiveDecorations {
   items: string[]
 }
 
+export type RecurrenceCycle = 'daily' | 'weekly' | 'monthly' | 'yearly'
+
+export interface RecurringBill {
+  id: string
+  name: string
+  amount: number
+  categoryId: string
+  type: TransactionType
+  cycle: RecurrenceCycle
+  startDate: string
+  nextDueDate: string
+  endDate?: string
+  note: string
+  isActive: boolean
+  remindDaysBefore: number
+  autoRecord: boolean
+  lastRecordedDate?: string
+  createdAt: string
+}
+
 export interface SavingState {
   balance: number
   points: number
@@ -63,6 +83,8 @@ export interface SavingState {
   ownedDecorations: string[]
   activeDecorations: ActiveDecorations
   lastMilestone: number
+  recurringBills: RecurringBill[]
+  lastRecurringCheckDate: string
 }
 
 export interface ExportData extends SavingState {
