@@ -25,6 +25,8 @@ export interface Transaction {
 
 export type WishCategory = 'jewelry' | 'travel' | 'other'
 
+export type WishPriority = 'low' | 'medium' | 'high' | 'urgent'
+
 export interface Wish {
   id: string
   name: string
@@ -33,6 +35,8 @@ export interface Wish {
   currentAmount: number
   category: WishCategory
   createdAt: string
+  deadline?: string
+  priority?: WishPriority
 }
 
 export type DecorationType = 'wallpaper' | 'floor' | 'item'

@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue'
 import type {
   Transaction,
   Wish,
+  WishPriority,
   Decoration,
   ActiveDecorations,
   TransactionType,
@@ -591,7 +592,14 @@ export const useSavingStore = defineStore('saving', () => {
     transactions.value.splice(idx, 1)
   }
 
-  function addWish(name: string, icon: string, targetAmount: number, category: Wish['category']) {
+  function addWish(
+    name: string,
+    icon: string,
+    targetAmount: number,
+    category: Wish['category'],
+    deadline?: string,
+    priority: WishPriority = 'medium'
+  ) {
     const wish: Wish = {
       id: `w-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       name,
@@ -600,12 +608,65 @@ export const useSavingStore = defineStore('saving', () => {
       currentAmount: 0,
       category,
       createdAt: new Date().toISOString().split('T')[0],
+      deadline,
+      priority,
     }
     wishes.value.push(wish)
     addEvent({
       type: 'wish',
       message: `🌟 新愿望「${name}」已添加，目标 ¥${targetAmount}`,
     })
+  }
+
+  function getDaysUntilDeadline(deadline?: string): number | null {
+    if (!deadline) return null
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const due = new Date(deadline)
+    due.setHours(0, 0, 0, 0)
+    const diffTime = due.getTime() - today.getTime()
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  }
+
+  function getPriorityWeight(priority?: WishPriority): number {
+    const p = priority || 'medium'
+    const weights: Record<WishPriority, number> = {
+      urgent: 4,
+      high: 3,
+      medium: 2,
+      low: 1,
+    }
+    return weights[p]
+  }
+
+  function getWishUrgencyScore(wish: Wish): number {
+    const priorityScore = getPriorityWeight(wish.priority) * 100
+    const daysLeft = getDaysUntilDeadline(wish.deadline)
+    if (daysLeft === null) return priorityScore
+    if (daysLeft < 0) return priorityScore + 1000
+    if (daysLeft <= 3) return priorityScore + 500 - daysLeft * 50
+    if (daysLeft <= 7) return priorityScore + 200 - daysLeft * 10
+    if (daysLeft <= 30) return priorityScore + 100 - daysLeft
+    return priorityScore - daysLeft * 0.5
+  }
+
+  function isWishNearDeadline(wish: Wish): boolean {
+    const daysLeft = getDaysUntilDeadline(wish.deadline)
+    if (daysLeft === null) return false
+    return daysLeft <= 7 && daysLeft >= 0
+  }
+
+  function isWishOverdue(wish: Wish): boolean {
+    const daysLeft = getDaysUntilDeadline(wish.deadline)
+    return daysLeft !== null && daysLeft < 0
+  }
+
+  function getDailySavingsNeeded(wish: Wish): number | null {
+    const daysLeft = getDaysUntilDeadline(wish.deadline)
+    if (daysLeft === null || daysLeft <= 0) return null
+    const remaining = wish.targetAmount - wish.currentAmount
+    if (remaining <= 0) return 0
+    return remaining / daysLeft
   }
 
   function deleteWish(id: string) {
@@ -821,6 +882,12 @@ export const useSavingStore = defineStore('saving', () => {
     deleteWish,
     depositToWish,
     withdrawFromWish,
+    getDaysUntilDeadline,
+    getPriorityWeight,
+    getWishUrgencyScore,
+    isWishNearDeadline,
+    isWishOverdue,
+    getDailySavingsNeeded,
     buyDecoration,
     toggleDecorationItem,
     setActiveWallpaper,

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { Plus, Trash2, ChevronDown, Gem, Plane, Gift } from 'lucide-vue-next'
+import { Plus, Trash2, ChevronDown, Gem, Plane, Gift, Calendar, Flag } from 'lucide-vue-next'
 import { useSavingStore } from '@/stores/saving'
-import type { WishCategory } from '@/types'
+import type { WishCategory, WishPriority } from '@/types'
 
 const store = useSavingStore()
 
@@ -10,6 +10,8 @@ const showAddModal = ref(false)
 const newWishName = ref('')
 const newWishTarget = ref('')
 const newWishCategory = ref<WishCategory>('other')
+const newWishDeadline = ref('')
+const newWishPriority = ref<WishPriority>('medium')
 const selectedIcon = ref('🎁')
 
 const depositWishId = ref<string | null>(null)
@@ -22,13 +24,18 @@ const wishCategories = [
   { key: 'other' as WishCategory, label: '其他', icon: Gift, emoji: '🎁' },
 ] as const
 
+const priorityOptions = [
+  { key: 'low' as WishPriority, label: '低', color: '#10B981', bgColor: '#D1FAE5' },
+  { key: 'medium' as WishPriority, label: '中', color: '#F59E0B', bgColor: '#FEF3C7' },
+  { key: 'high' as WishPriority, label: '高', color: '#F97316', bgColor: '#FFEDD5' },
+  { key: 'urgent' as WishPriority, label: '紧急', color: '#EF4444', bgColor: '#FEE2E2' },
+] as const
+
 const iconOptions = ['💍', '✈️', '📷', '👜', '👗', '🎮', '📚', '🏠', '🚗', '🎁']
 
 const sortedWishes = computed(() => {
   return [...store.wishes].sort((a, b) => {
-    const progressA = a.currentAmount / a.targetAmount
-    const progressB = b.currentAmount / b.targetAmount
-    return progressA - progressB
+    return store.getWishUrgencyScore(b) - store.getWishUrgencyScore(a)
   })
 })
 
@@ -46,10 +53,44 @@ function getCategoryLabel(category: WishCategory): string {
   return cat?.label || '其他'
 }
 
+function getPriorityLabel(priority?: WishPriority): string {
+  const p = priorityOptions.find(o => o.key === (priority || 'medium'))
+  return p?.label || '中'
+}
+
+function getPriorityColor(priority?: WishPriority): string {
+  const p = priorityOptions.find(o => o.key === (priority || 'medium'))
+  return p?.color || '#F59E0B'
+}
+
+function getPriorityBgColor(priority?: WishPriority): string {
+  const p = priorityOptions.find(o => o.key === (priority || 'medium'))
+  return p?.bgColor || '#FEF3C7'
+}
+
+function formatDeadline(deadline?: string): string {
+  if (!deadline) return ''
+  const date = new Date(deadline)
+  const month = date.getMonth() + 1
+  const day = date.getDate()
+  return `${month}月${day}日`
+}
+
+function getDaysText(wish: { deadline?: string }): string {
+  const days = store.getDaysUntilDeadline(wish.deadline)
+  if (days === null) return ''
+  if (days < 0) return `已逾期${Math.abs(days)}天`
+  if (days === 0) return '今天截止'
+  if (days === 1) return '明天截止'
+  return `还剩${days}天`
+}
+
 function openAddModal() {
   newWishName.value = ''
   newWishTarget.value = ''
   newWishCategory.value = 'other'
+  newWishDeadline.value = ''
+  newWishPriority.value = 'medium'
   selectedIcon.value = '🎁'
   showAddModal.value = true
 }
@@ -58,7 +99,14 @@ function handleAddWish() {
   if (!newWishName.value.trim() || !parseFloat(newWishTarget.value)) return
   const target = parseFloat(newWishTarget.value)
   if (target <= 0) return
-  store.addWish(newWishName.value.trim(), selectedIcon.value, target, newWishCategory.value)
+  store.addWish(
+    newWishName.value.trim(),
+    selectedIcon.value,
+    target,
+    newWishCategory.value,
+    newWishDeadline.value || undefined,
+    newWishPriority.value
+  )
   showAddModal.value = false
 }
 
@@ -92,6 +140,17 @@ function handleDeleteWish(id: string) {
 function getWishById(id: string) {
   return store.wishes.find(w => w.id === id)
 }
+
+function getDailySuggestion(wish: { deadline?: string; targetAmount: number; currentAmount: number }): string {
+  const daily = store.getDailySavingsNeeded(wish as any)
+  if (daily === null) {
+    const remaining = wish.targetAmount - wish.currentAmount
+    if (remaining <= 0) return '目标已达成 🎉'
+    return `还差 ¥${remaining.toFixed(0)}`
+  }
+  if (daily <= 0) return '目标已达成 🎉'
+  return `建议每天存 ¥${daily.toFixed(0)}`
+}
 </script>
 
 <template>
@@ -116,7 +175,11 @@ function getWishById(id: string) {
       <div
         v-for="wish in sortedWishes"
         :key="wish.id"
-        class="bg-white rounded-[20px] p-4 shadow-softer flex gap-3.5"
+        class="bg-white rounded-[20px] p-4 shadow-softer flex gap-3.5 transition-all duration-300"
+        :class="{
+          'ring-2 ring-red-400 shadow-[0_0_20px_rgba(239,68,68,0.15)]': store.isWishOverdue(wish),
+          'ring-2 ring-orange-400 shadow-[0_0_20px_rgba(249,115,22,0.15)] bg-gradient-to-br from-orange-50 to-white': store.isWishNearDeadline(wish) && !store.isWishOverdue(wish),
+        }"
       >
         <div
           class="w-13 h-13 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -125,15 +188,40 @@ function getWishById(id: string) {
           <span class="text-2xl">{{ wish.icon }}</span>
         </div>
         <div class="flex-1 min-w-0">
-          <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center justify-between mb-1.5">
             <h3 class="text-sm font-bold text-gray-700">{{ wish.name }}</h3>
-            <span
-              class="text-xs font-semibold px-2 py-0.5 rounded-lg"
-              :style="{ color: getProgressColor(wish.category), backgroundColor: getProgressColor(wish.category) + '15' }"
-            >
-              {{ getCategoryLabel(wish.category) }}
-            </span>
+            <div class="flex items-center gap-1.5">
+              <span
+                class="text-[10px] font-semibold px-1.5 py-0.5 rounded-md flex items-center gap-0.5"
+                :style="{ color: getPriorityColor(wish.priority), backgroundColor: getPriorityBgColor(wish.priority) }"
+              >
+                <Flag :size="10" />
+                {{ getPriorityLabel(wish.priority) }}
+              </span>
+              <span
+                class="text-xs font-semibold px-2 py-0.5 rounded-lg"
+                :style="{ color: getProgressColor(wish.category), backgroundColor: getProgressColor(wish.category) + '15' }"
+              >
+                {{ getCategoryLabel(wish.category) }}
+              </span>
+            </div>
           </div>
+
+          <div
+            v-if="wish.deadline"
+            class="flex items-center gap-1 mb-2 text-xs"
+            :class="{
+              'text-red-500 font-bold': store.isWishOverdue(wish),
+              'text-orange-500 font-semibold': store.isWishNearDeadline(wish) && !store.isWishOverdue(wish),
+              'text-gray-400': !store.isWishNearDeadline(wish) && !store.isWishOverdue(wish),
+            }"
+          >
+            <Calendar :size="12" />
+            <span>{{ formatDeadline(wish.deadline) }}</span>
+            <span class="opacity-70">·</span>
+            <span>{{ getDaysText(wish) }}</span>
+          </div>
+
           <div class="mb-2.5">
             <div class="h-2 bg-gray-100 rounded-full overflow-hidden mb-1.5">
               <div
@@ -152,6 +240,14 @@ function getWishById(id: string) {
               {{ Math.round((wish.currentAmount / wish.targetAmount) * 100) }}%
             </div>
           </div>
+
+          <div
+            v-if="wish.deadline"
+            class="text-[11px] text-gray-500 mb-2.5 bg-gray-50 rounded-lg px-2.5 py-1.5"
+          >
+            {{ getDailySuggestion(wish) }}
+          </div>
+
           <div class="flex gap-2">
             <button
               class="flex-1 flex items-center justify-center gap-1 px-2.5 py-2 rounded-lg text-xs font-semibold transition-all duration-200 bg-mint-500/12 text-mint-500 hover:bg-mint-500/20"
@@ -185,7 +281,7 @@ function getWishById(id: string) {
     </div>
 
     <div v-if="showAddModal" class="fixed inset-0 bg-black/40 z-[1000] flex items-end justify-center animate-[fadeIn_0.2s_ease]" @click.self="showAddModal = false">
-      <div class="w-full max-w-[480px] bg-white rounded-t-[24px] p-5 animate-[slideUp_0.3s_cubic-bezier(0.34,1.56,0.64,1)]">
+      <div class="w-full max-w-[480px] bg-white rounded-t-[24px] p-5 animate-[slideUp_0.3s_cubic-bezier(0.34,1.56,0.64,1)] max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between mb-5">
           <h3 class="text-lg font-bold text-gray-700">添加新愿望</h3>
           <button class="w-8 h-8 rounded-full bg-gray-100 text-gray-500 text-xl flex items-center justify-center" @click="showAddModal = false">×</button>
@@ -226,6 +322,43 @@ function getWishById(id: string) {
           </div>
         </div>
 
+        <div class="mb-4">
+          <label class="block text-sm font-semibold text-gray-500 mb-2">
+            <span class="inline-flex items-center gap-1">
+              <Calendar :size="14" />
+              截止日期
+              <span class="text-gray-400 font-normal text-xs">（可选）</span>
+            </span>
+          </label>
+          <input
+            v-model="newWishDeadline"
+            type="date"
+            class="w-full py-3 px-4 border-2 border-gray-100 rounded-xl text-sm outline-none transition-colors duration-200 focus:border-warm-500 bg-gray-50"
+          />
+        </div>
+
+        <div class="mb-5">
+          <label class="block text-sm font-semibold text-gray-500 mb-2">
+            <span class="inline-flex items-center gap-1">
+              <Flag :size="14" />
+              优先级
+            </span>
+          </label>
+          <div class="grid grid-cols-4 gap-2">
+            <button
+              v-for="p in priorityOptions"
+              :key="p.key"
+              class="flex flex-col items-center gap-0.5 py-2.5 px-1 rounded-xl transition-all duration-200 text-xs font-semibold"
+              :class="{ 'scale-105 shadow-md': newWishPriority === p.key }"
+              :style="newWishPriority === p.key ? { backgroundColor: p.bgColor, color: p.color } : { backgroundColor: '#F9FAFB', color: '#9CA3AF' }"
+              @click="newWishPriority = p.key"
+            >
+              <Flag :size="14" />
+              <span>{{ p.label }}</span>
+            </button>
+          </div>
+        </div>
+
         <div class="mb-5">
           <label class="block text-sm font-semibold text-gray-500 mb-2">分类</label>
           <div class="flex gap-2.5">
@@ -261,14 +394,35 @@ function getWishById(id: string) {
 
         <div
           v-if="depositWishId && getWishById(depositWishId)"
-          class="flex items-center gap-3 p-3.5 bg-gray-50 rounded-xl mb-5"
+          class="flex items-center gap-3 p-3.5 bg-gray-50 rounded-xl mb-4"
         >
           <span class="text-3xl">{{ getWishById(depositWishId)?.icon }}</span>
-          <div>
+          <div class="flex-1">
             <div class="font-semibold text-gray-700">{{ getWishById(depositWishId)?.name }}</div>
             <div class="text-xs text-gray-400 mt-0.5">
               当前：¥{{ getWishById(depositWishId)?.currentAmount.toFixed(0) }} / ¥{{ getWishById(depositWishId)?.targetAmount.toFixed(0) }}
             </div>
+          </div>
+        </div>
+
+        <div
+          v-if="depositWishId && getWishById(depositWishId)?.deadline"
+          class="p-3.5 rounded-xl mb-4 border-2"
+          :class="{
+            'bg-red-50 border-red-200': store.isWishOverdue(getWishById(depositWishId)!),
+            'bg-orange-50 border-orange-200': store.isWishNearDeadline(getWishById(depositWishId)!) && !store.isWishOverdue(getWishById(depositWishId)!),
+            'bg-warm-50 border-warm-200': !store.isWishNearDeadline(getWishById(depositWishId)!) && !store.isWishOverdue(getWishById(depositWishId)!),
+          }"
+        >
+          <div class="flex items-center gap-2 mb-1.5">
+            <Calendar :size="14" class="text-warm-500" />
+            <span class="text-xs font-semibold text-gray-600">{{ getDaysText(getWishById(depositWishId)!) }}</span>
+          </div>
+          <div class="text-sm font-bold text-gray-700">
+            {{ getDailySuggestion(getWishById(depositWishId)!) }}
+          </div>
+          <div class="text-[11px] text-gray-500 mt-1">
+            距离目标还差 ¥{{ ((getWishById(depositWishId)?.targetAmount || 0) - (getWishById(depositWishId)?.currentAmount || 0)).toFixed(0) }}
           </div>
         </div>
 

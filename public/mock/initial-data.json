@@ -75,7 +75,9 @@
       "targetAmount": 5000,
       "currentAmount": 1500,
       "category": "jewelry",
-      "createdAt": "2026-05-01"
+      "createdAt": "2026-05-01",
+      "deadline": "2026-06-25",
+      "priority": "urgent"
     },
     {
       "id": "w2",
@@ -84,7 +86,9 @@
       "targetAmount": 8000,
       "currentAmount": 2000,
       "category": "travel",
-      "createdAt": "2026-04-15"
+      "createdAt": "2026-04-15",
+      "deadline": "2026-08-15",
+      "priority": "high"
     },
     {
       "id": "w3",
@@ -93,7 +97,9 @@
       "targetAmount": 3500,
       "currentAmount": 800,
       "category": "other",
-      "createdAt": "2026-05-20"
+      "createdAt": "2026-05-20",
+      "deadline": "2026-06-20",
+      "priority": "medium"
     }
   ],
   "ownedDecorations": [
