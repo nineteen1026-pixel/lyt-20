@@ -302,6 +302,32 @@ export const useSavingStore = defineStore('saving', () => {
       .reduce((sum, bill) => sum + calculateMonthlyAmount(bill.amount, bill.cycle), 0)
   })
 
+  const reportMonthKeys = computed<Set<string>>(() => {
+    const keys = new Set<string>()
+    const now = new Date()
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+      keys.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+    }
+    return keys
+  })
+
+  const reportPeriodLabel = computed(() => {
+    const keys = Array.from(reportMonthKeys.value)
+    if (keys.length === 0) return ''
+    const start = keys[0]
+    const end = keys[keys.length - 1]
+    const startLabel = `${parseInt(start.split('-')[0])}.${parseInt(start.split('-')[1])}月`
+    const endLabel = `${parseInt(end.split('-')[0])}.${parseInt(end.split('-')[1])}月`
+    return start === end ? startLabel : `${startLabel} - ${endLabel}`
+  })
+
+  function isTransactionInReportPeriod(tx: Transaction): boolean {
+    const d = new Date(tx.date)
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    return reportMonthKeys.value.has(key)
+  }
+
   interface MonthlyTrendItem {
     month: string
     monthLabel: string
@@ -325,6 +351,7 @@ export const useSavingStore = defineStore('saving', () => {
       })
     }
     for (const tx of transactions.value) {
+      if (!isTransactionInReportPeriod(tx)) continue
       const d = new Date(tx.date)
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
       if (months.has(key)) {
@@ -356,6 +383,7 @@ export const useSavingStore = defineStore('saving', () => {
     let totalAmount = 0
     for (const tx of transactions.value) {
       if (tx.type !== type) continue
+      if (!isTransactionInReportPeriod(tx)) continue
       const cat = getCategoryById(tx.categoryId)
       if (!totalMap.has(tx.categoryId)) {
         totalMap.set(tx.categoryId, {
@@ -992,6 +1020,7 @@ export const useSavingStore = defineStore('saving', () => {
     totalBudgetedIncome,
     totalBudgetUsed,
     monthlyTrend,
+    reportPeriodLabel,
     expenseCategoryStats,
     incomeCategoryStats,
     getCategoryStats,

@@ -39,7 +39,28 @@ function handleExportTransactions() {
 }
 
 function handleExportMonthlyReport() {
-  exportMonthlyReportToCsv(store.monthlyTrend, store.expenseCategoryStats, store.incomeCategoryStats)
+  const ws = store.wishStats
+  exportMonthlyReportToCsv(
+    store.monthlyTrend,
+    store.expenseCategoryStats,
+    store.incomeCategoryStats,
+    {
+      totalCount: ws.totalCount,
+      achievedCount: ws.achievedCount,
+      achievedRate: ws.achievedRate,
+      totalTargetAmount: ws.totalTargetAmount,
+      totalCurrentAmount: ws.totalCurrentAmount,
+      overallProgress: ws.overallProgress,
+      wishes: store.wishes.map((w) => ({
+        name: w.name,
+        targetAmount: w.targetAmount,
+        currentAmount: w.currentAmount,
+        progress: w.targetAmount > 0 ? (w.currentAmount / w.targetAmount) * 100 : 0,
+        achieved: w.currentAmount >= w.targetAmount,
+      })),
+    },
+    store.reportPeriodLabel
+  )
   showExportMenu.value = false
 }
 
@@ -123,7 +144,7 @@ function getWishProgressColor(wish: { currentAmount: number; targetAmount: numbe
           <TrendingUp :size="18" class="text-lavender-500" />
         </div>
         <span class="text-sm font-bold text-gray-700">月度收支趋势</span>
-        <span class="text-[10px] px-2 py-0.5 bg-lavender-100 text-lavender-600 rounded-full font-medium">近6个月</span>
+        <span class="text-[10px] px-2 py-0.5 bg-lavender-100 text-lavender-600 rounded-full font-medium">{{ store.reportPeriodLabel }}</span>
       </div>
 
       <div class="space-y-3">
@@ -175,6 +196,7 @@ function getWishProgressColor(wish: { currentAmount: number; targetAmount: numbe
             <PieChart :size="18" class="text-butter-500" />
           </div>
           <span class="text-sm font-bold text-gray-700">分类占比</span>
+          <span class="text-[10px] px-2 py-0.5 bg-butter-100 text-butter-600 rounded-full font-medium">{{ store.reportPeriodLabel }}</span>
         </div>
         <div class="flex bg-gray-100 rounded-lg p-0.5">
           <button

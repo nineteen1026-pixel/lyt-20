@@ -44,9 +44,21 @@ export function exportTransactionsToCsv(
 export function exportMonthlyReportToCsv(
   monthlyTrend: { month: string; monthLabel: string; income: number; expense: number; balance: number }[],
   expenseStats: { categoryName: string; amount: number; percent: number; count: number }[],
-  incomeStats: { categoryName: string; amount: number; percent: number; count: number }[]
+  incomeStats: { categoryName: string; amount: number; percent: number; count: number }[],
+  wishSummary: {
+    totalCount: number
+    achievedCount: number
+    achievedRate: number
+    totalTargetAmount: number
+    totalCurrentAmount: number
+    overallProgress: number
+    wishes: { name: string; targetAmount: number; currentAmount: number; progress: number; achieved: boolean }[]
+  },
+  periodLabel: string
 ): void {
   const lines: string[] = []
+  lines.push(`报表口径,${periodLabel}`)
+  lines.push('')
   lines.push('月度收支趋势')
   lines.push(['月份', '收入', '支出', '结余'].map((c) => `"${c}"`).join(','))
   for (const m of monthlyTrend) {
@@ -63,6 +75,29 @@ export function exportMonthlyReportToCsv(
   lines.push(['分类', '金额', '占比(%)', '笔数'].map((c) => `"${c}"`).join(','))
   for (const s of incomeStats) {
     lines.push([s.categoryName, s.amount.toFixed(2), s.percent.toFixed(2), String(s.count)].map((c) => `"${c}"`).join(','))
+  }
+  lines.push('')
+  lines.push('愿望达成率汇总')
+  lines.push(['总愿望数', '已达成', '达成率(%)', '目标总额', '已存总额', '整体进度(%)'].map((c) => `"${c}"`).join(','))
+  lines.push([
+    String(wishSummary.totalCount),
+    String(wishSummary.achievedCount),
+    wishSummary.achievedRate.toFixed(2),
+    wishSummary.totalTargetAmount.toFixed(2),
+    wishSummary.totalCurrentAmount.toFixed(2),
+    wishSummary.overallProgress.toFixed(2),
+  ].map((c) => `"${c}"`).join(','))
+  lines.push('')
+  lines.push('愿望明细')
+  lines.push(['愿望名称', '目标金额', '已存金额', '进度(%)', '状态'].map((c) => `"${c}"`).join(','))
+  for (const w of wishSummary.wishes) {
+    lines.push([
+      w.name,
+      w.targetAmount.toFixed(2),
+      w.currentAmount.toFixed(2),
+      w.progress.toFixed(2),
+      w.achieved ? '已达成' : '进行中',
+    ].map((c) => `"${c}"`).join(','))
   }
   const date = new Date().toISOString().split('T')[0]
   downloadCsv(lines.join('\n'), `月度报表-${date}.csv`)
