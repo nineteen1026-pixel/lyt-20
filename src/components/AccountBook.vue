@@ -24,6 +24,7 @@ const newTxNote = ref('')
 const showBudgetDetail = ref(false)
 const editingBudgetCategoryId = ref<string | null>(null)
 const editingBudgetAmount = ref('')
+const editingBudgetType = ref<TransactionType>('expense')
 
 const sortedBudgetStats = computed(() => {
   return [...store.budgetStats].sort((a, b) => {
@@ -35,12 +36,18 @@ const sortedBudgetStats = computed(() => {
   })
 })
 
+const expenseBudgetStats = computed(() => sortedBudgetStats.value.filter(s => s.categoryType === 'expense'))
+const incomeBudgetStats = computed(() => sortedBudgetStats.value.filter(s => s.categoryType === 'income'))
+
 function openBudgetModal(categoryId?: string) {
   if (categoryId) {
+    const cat = getCategoryById(categoryId)
+    editingBudgetType.value = cat?.type || 'expense'
     editingBudgetCategoryId.value = categoryId
     const existing = store.getBudgetByCategory(categoryId)
     editingBudgetAmount.value = existing ? existing.amount.toString() : ''
   } else {
+    editingBudgetType.value = 'expense'
     const expenseCats = getCategoriesByType('expense')
     const budgetedIds = new Set(store.budgets.map((b) => b.categoryId))
     const firstUnbudgeted = expenseCats.find((c) => !budgetedIds.has(c.id))
@@ -54,6 +61,7 @@ function closeBudgetModal() {
   showBudgetModal.value = false
   editingBudgetCategoryId.value = null
   editingBudgetAmount.value = ''
+  editingBudgetType.value = 'expense'
 }
 
 function saveBudget() {
@@ -70,9 +78,9 @@ function handleRemoveBudget(categoryId: string) {
   }
 }
 
-const expenseCategoriesWithoutBudget = computed(() => {
+const categoriesWithoutBudget = computed(() => {
   const budgetedIds = new Set(store.budgets.map((b) => b.categoryId))
-  return getCategoriesByType('expense').filter((c) => !budgetedIds.has(c.id))
+  return getCategoriesByType(editingBudgetType.value).filter((c) => !budgetedIds.has(c.id))
 })
 
 const expenseRecurringStats = computed(() => {
@@ -242,7 +250,7 @@ function handleDelete(id: string) {
 
       <div v-if="store.budgets.length === 0" class="text-center py-5 px-4">
         <div class="text-3xl mb-2">🎯</div>
-        <div class="text-sm text-gray-500 mb-3">还没有设置预算，合理规划每一笔支出</div>
+        <div class="text-sm text-gray-500 mb-3">还没有设置预算，合理规划每一笔收支</div>
         <button
           class="text-sm font-semibold text-white bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-2 rounded-xl shadow-sm hover:shadow-md transition-all active:scale-95"
           @click="openBudgetModal()"
@@ -251,103 +259,214 @@ function handleDelete(id: string) {
         </button>
       </div>
 
-      <div v-else class="space-y-3">
-        <div
-          v-for="stat in sortedBudgetStats"
-          :key="stat.categoryId"
-          class="p-3 rounded-xl transition-all duration-200"
-          :class="{
-            'bg-red-50 border border-red-100': stat.isOverspent,
-            'bg-amber-50 border border-amber-100': stat.isNearOverspent && !stat.isOverspent,
-            'bg-gray-50': !stat.isOverspent && !stat.isNearOverspent,
-          }"
-        >
-          <div class="flex items-center justify-between mb-2">
-            <div class="flex items-center gap-2 min-w-0">
-              <div
-                class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                :style="{
-                  backgroundColor: (getCategoryById(stat.categoryId)?.color || '#9CA3AF') + '20',
-                  color: getCategoryById(stat.categoryId)?.color || '#9CA3AF',
-                }"
-              >
-                <component
-                  v-if="getIconComponent(getCategoryById(stat.categoryId)?.icon || '')"
-                  :is="getIconComponent(getCategoryById(stat.categoryId)?.icon || '')"
-                  :size="16"
-                />
-                <span v-else class="text-sm">📌</span>
+      <div v-else class="space-y-4">
+        <div v-if="expenseBudgetStats.length > 0">
+          <div class="flex items-center gap-1.5 mb-2 px-1">
+            <span class="text-[11px] font-semibold text-warm-500">💸 支出预算</span>
+            <span class="text-[10px] text-gray-400">
+              总 ¥{{ store.totalBudgetedExpense.toFixed(0) }} · 已用 ¥{{ expenseBudgetStats.reduce((s, b) => s + b.usedAmount, 0).toFixed(0) }}
+            </span>
+          </div>
+          <div class="space-y-2.5">
+            <div
+              v-for="stat in expenseBudgetStats"
+              :key="stat.categoryId"
+              class="p-3 rounded-xl transition-all duration-200"
+              :class="{
+                'bg-red-50 border border-red-100': stat.isOverspent,
+                'bg-amber-50 border border-amber-100': stat.isNearOverspent && !stat.isOverspent,
+                'bg-gray-50': !stat.isOverspent && !stat.isNearOverspent,
+              }"
+            >
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2 min-w-0">
+                  <div
+                    class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                    :style="{
+                      backgroundColor: (getCategoryById(stat.categoryId)?.color || '#9CA3AF') + '20',
+                      color: getCategoryById(stat.categoryId)?.color || '#9CA3AF',
+                    }"
+                  >
+                    <component
+                      v-if="getIconComponent(getCategoryById(stat.categoryId)?.icon || '')"
+                      :is="getIconComponent(getCategoryById(stat.categoryId)?.icon || '')"
+                      :size="16"
+                    />
+                    <span v-else class="text-sm">📌</span>
+                  </div>
+                  <div class="min-w-0">
+                    <div
+                      class="text-sm font-semibold truncate"
+                      :class="{
+                        'text-red-600': stat.isOverspent,
+                        'text-amber-700': stat.isNearOverspent && !stat.isOverspent,
+                        'text-gray-700': !stat.isOverspent && !stat.isNearOverspent,
+                      }"
+                    >
+                      {{ getCategoryById(stat.categoryId)?.name || '其他' }}
+                    </div>
+                    <div class="text-[10px] text-gray-400">
+                      已用 ¥{{ stat.usedAmount.toFixed(0) }} / 预算 ¥{{ stat.budgetAmount.toFixed(0) }}
+                    </div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-1.5 flex-shrink-0">
+                  <div class="text-right">
+                    <div
+                      class="text-xs font-bold"
+                      :class="{
+                        'text-red-600': stat.isOverspent,
+                        'text-amber-600': stat.isNearOverspent && !stat.isOverspent,
+                        'text-gray-600': !stat.isOverspent && !stat.isNearOverspent,
+                      }"
+                    >
+                      {{ stat.usedPercent.toFixed(0) }}%
+                    </div>
+                    <div
+                      v-if="stat.isOverspent"
+                      class="text-[10px] font-medium text-red-500"
+                    >
+                      超 ¥{{ (stat.usedAmount - stat.budgetAmount).toFixed(0) }}
+                    </div>
+                    <div
+                      v-else
+                      class="text-[10px] font-medium"
+                      :class="stat.isNearOverspent ? 'text-amber-600' : 'text-gray-400'"
+                    >
+                      剩 ¥{{ stat.remainingAmount.toFixed(0) }}
+                    </div>
+                  </div>
+                  <button
+                    class="w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:bg-white/60"
+                    :class="stat.isOverspent ? 'text-red-400' : stat.isNearOverspent ? 'text-amber-400' : 'text-gray-400'"
+                    @click="openBudgetModal(stat.categoryId)"
+                  >
+                    <Edit3 :size="13" />
+                  </button>
+                </div>
               </div>
-              <div class="min-w-0">
+              <div class="h-2 rounded-full overflow-hidden" :class="stat.isOverspent ? 'bg-red-100' : stat.isNearOverspent ? 'bg-amber-100' : 'bg-gray-200'">
                 <div
-                  class="text-sm font-semibold truncate"
+                  class="h-full rounded-full transition-all duration-500 ease-out"
                   :class="{
-                    'text-red-600': stat.isOverspent,
-                    'text-amber-700': stat.isNearOverspent && !stat.isOverspent,
-                    'text-gray-700': !stat.isOverspent && !stat.isNearOverspent,
+                    'bg-gradient-to-r from-red-400 to-red-500': stat.isOverspent,
+                    'bg-gradient-to-r from-amber-400 to-amber-500': stat.isNearOverspent && !stat.isOverspent,
+                    'bg-gradient-to-r from-lavender-400 to-lavender-500': !stat.isOverspent && !stat.isNearOverspent,
                   }"
-                >
-                  {{ getCategoryById(stat.categoryId)?.name || '其他' }}
-                </div>
-                <div class="text-[10px] text-gray-400">
-                  已用 ¥{{ stat.usedAmount.toFixed(0) }} / 预算 ¥{{ stat.budgetAmount.toFixed(0) }}
-                </div>
+                  :style="{ width: Math.min(stat.usedPercent, 100) + '%' }"
+                ></div>
               </div>
-            </div>
-            <div class="flex items-center gap-1.5 flex-shrink-0">
-              <div class="text-right">
-                <div
-                  class="text-xs font-bold"
-                  :class="{
-                    'text-red-600': stat.isOverspent,
-                    'text-amber-600': stat.isNearOverspent && !stat.isOverspent,
-                    'text-gray-600': !stat.isOverspent && !stat.isNearOverspent,
-                  }"
-                >
-                  {{ stat.usedPercent.toFixed(0) }}%
-                </div>
-                <div
-                  v-if="stat.isOverspent"
-                  class="text-[10px] font-medium text-red-500"
-                >
-                  超 ¥{{ (stat.usedAmount - stat.budgetAmount).toFixed(0) }}
-                </div>
-                <div
-                  v-else
-                  class="text-[10px] font-medium"
-                  :class="stat.isNearOverspent ? 'text-amber-600' : 'text-gray-400'"
-                >
-                  剩 ¥{{ stat.remainingAmount.toFixed(0) }}
-                </div>
-              </div>
-              <button
-                class="w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:bg-white/60"
-                :class="stat.isOverspent ? 'text-red-400' : stat.isNearOverspent ? 'text-amber-400' : 'text-gray-400'"
-                @click="openBudgetModal(stat.categoryId)"
-              >
-                <Edit3 :size="13" />
-              </button>
             </div>
           </div>
-          <div class="h-2 rounded-full overflow-hidden" :class="stat.isOverspent ? 'bg-red-100' : stat.isNearOverspent ? 'bg-amber-100' : 'bg-gray-200'">
+        </div>
+
+        <div v-if="incomeBudgetStats.length > 0">
+          <div class="flex items-center gap-1.5 mb-2 px-1">
+            <span class="text-[11px] font-semibold text-mint-500">💰 收入预算</span>
+            <span class="text-[10px] text-gray-400">
+              总 ¥{{ store.totalBudgetedIncome.toFixed(0) }} · 已达 ¥{{ incomeBudgetStats.reduce((s, b) => s + b.usedAmount, 0).toFixed(0) }}
+            </span>
+          </div>
+          <div class="space-y-2.5">
             <div
-              class="h-full rounded-full transition-all duration-500 ease-out"
+              v-for="stat in incomeBudgetStats"
+              :key="stat.categoryId"
+              class="p-3 rounded-xl transition-all duration-200"
               :class="{
-                'bg-gradient-to-r from-red-400 to-red-500': stat.isOverspent,
-                'bg-gradient-to-r from-amber-400 to-amber-500': stat.isNearOverspent && !stat.isOverspent,
-                'bg-gradient-to-r from-lavender-400 to-lavender-500': !stat.isOverspent && !stat.isNearOverspent,
+                'bg-red-50 border border-red-100': stat.isOverspent,
+                'bg-amber-50 border border-amber-100': stat.isNearOverspent && !stat.isOverspent,
+                'bg-gray-50': !stat.isOverspent && !stat.isNearOverspent,
               }"
-              :style="{ width: Math.min(stat.usedPercent, 100) + '%' }"
-            ></div>
+            >
+              <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center gap-2 min-w-0">
+                  <div
+                    class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                    :style="{
+                      backgroundColor: (getCategoryById(stat.categoryId)?.color || '#9CA3AF') + '20',
+                      color: getCategoryById(stat.categoryId)?.color || '#9CA3AF',
+                    }"
+                  >
+                    <component
+                      v-if="getIconComponent(getCategoryById(stat.categoryId)?.icon || '')"
+                      :is="getIconComponent(getCategoryById(stat.categoryId)?.icon || '')"
+                      :size="16"
+                    />
+                    <span v-else class="text-sm">📌</span>
+                  </div>
+                  <div class="min-w-0">
+                    <div
+                      class="text-sm font-semibold truncate"
+                      :class="{
+                        'text-red-600': stat.isOverspent,
+                        'text-amber-700': stat.isNearOverspent && !stat.isOverspent,
+                        'text-gray-700': !stat.isOverspent && !stat.isNearOverspent,
+                      }"
+                    >
+                      {{ getCategoryById(stat.categoryId)?.name || '其他' }}
+                      <span class="text-[10px] font-normal text-gray-400 ml-1">（收入）</span>
+                    </div>
+                    <div class="text-[10px] text-gray-400">
+                      已达 ¥{{ stat.usedAmount.toFixed(0) }} / 目标 ¥{{ stat.budgetAmount.toFixed(0) }}
+                    </div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-1.5 flex-shrink-0">
+                  <div class="text-right">
+                    <div
+                      class="text-xs font-bold"
+                      :class="{
+                        'text-red-600': stat.isOverspent,
+                        'text-amber-600': stat.isNearOverspent && !stat.isOverspent,
+                        'text-gray-600': !stat.isOverspent && !stat.isNearOverspent,
+                      }"
+                    >
+                      {{ stat.usedPercent.toFixed(0) }}%
+                    </div>
+                    <div
+                      v-if="stat.isOverspent"
+                      class="text-[10px] font-medium text-red-500"
+                    >
+                      超 ¥{{ (stat.usedAmount - stat.budgetAmount).toFixed(0) }}
+                    </div>
+                    <div
+                      v-else
+                      class="text-[10px] font-medium"
+                      :class="stat.isNearOverspent ? 'text-amber-600' : 'text-gray-400'"
+                    >
+                      差 ¥{{ stat.remainingAmount.toFixed(0) }}
+                    </div>
+                  </div>
+                  <button
+                    class="w-7 h-7 rounded-lg flex items-center justify-center transition-colors hover:bg-white/60"
+                    :class="stat.isOverspent ? 'text-red-400' : stat.isNearOverspent ? 'text-amber-400' : 'text-gray-400'"
+                    @click="openBudgetModal(stat.categoryId)"
+                  >
+                    <Edit3 :size="13" />
+                  </button>
+                </div>
+              </div>
+              <div class="h-2 rounded-full overflow-hidden" :class="stat.isOverspent ? 'bg-red-100' : stat.isNearOverspent ? 'bg-amber-100' : 'bg-gray-200'">
+                <div
+                  class="h-full rounded-full transition-all duration-500 ease-out"
+                  :class="{
+                    'bg-gradient-to-r from-red-400 to-red-500': stat.isOverspent,
+                    'bg-gradient-to-r from-amber-400 to-amber-500': stat.isNearOverspent && !stat.isOverspent,
+                    'bg-gradient-to-r from-mint-400 to-mint-500': !stat.isOverspent && !stat.isNearOverspent,
+                  }"
+                  :style="{ width: Math.min(stat.usedPercent, 100) + '%' }"
+                ></div>
+              </div>
+            </div>
           </div>
         </div>
 
         <div class="flex items-center justify-between pt-1 px-1">
           <div class="text-[11px] text-gray-400">
-            总预算 ¥{{ store.totalBudgetedExpense.toFixed(0) }} · 已用 ¥{{ store.totalBudgetUsed.toFixed(0) }}
+            总预算 ¥{{ (store.totalBudgetedExpense + store.totalBudgetedIncome).toFixed(0) }}
           </div>
           <button
-            v-if="expenseCategoriesWithoutBudget.length > 0"
+            v-if="categoriesWithoutBudget.length > 0 || getCategoriesByType('income').some(c => !store.budgets.find(b => b.categoryId === c.id))"
             class="text-[11px] font-medium text-lavender-600 bg-lavender-50 hover:bg-lavender-100 px-2.5 py-1 rounded-lg transition-colors"
             @click="openBudgetModal()"
           >
@@ -589,11 +708,38 @@ function handleDelete(id: string) {
           </button>
         </div>
 
+        <div v-if="!editingBudgetCategoryId || !store.getBudgetByCategory(editingBudgetCategoryId)" class="flex bg-gray-100 rounded-xl p-1 mb-5">
+          <button
+            class="flex-1 py-2.5 rounded-lg font-semibold text-sm text-gray-500 transition-all duration-200"
+            :class="{ 'bg-white text-warm-500 shadow-sm': editingBudgetType === 'income' }"
+            @click="editingBudgetType = 'income'; editingBudgetCategoryId = getCategoriesByType('income')[0]?.id || ''"
+          >
+            收入
+          </button>
+          <button
+            class="flex-1 py-2.5 rounded-lg font-semibold text-sm text-gray-500 transition-all duration-200"
+            :class="{ 'bg-white text-warm-500 shadow-sm': editingBudgetType === 'expense' }"
+            @click="editingBudgetType = 'expense'; editingBudgetCategoryId = getCategoriesByType('expense')[0]?.id || ''"
+          >
+            支出
+          </button>
+        </div>
+        <div v-else class="mb-5">
+          <div class="flex items-center gap-2">
+            <span
+              class="text-[11px] px-2 py-0.5 rounded-full font-medium"
+              :class="editingBudgetType === 'income' ? 'bg-mint-100 text-mint-600' : 'bg-warm-100 text-warm-600'"
+            >
+              {{ editingBudgetType === 'income' ? '收入分类' : '支出分类' }}
+            </span>
+          </div>
+        </div>
+
         <div class="mb-5">
           <label class="block text-xs font-semibold text-gray-500 mb-2.5">选择分类</label>
           <div class="grid grid-cols-4 gap-2.5">
             <button
-              v-for="cat in getCategoriesByType('expense')"
+              v-for="cat in getCategoriesByType(editingBudgetType)"
               :key="cat.id"
               class="flex flex-col items-center gap-1.5 py-3 px-1 rounded-xl transition-all duration-200 border-2"
               :class="editingBudgetCategoryId === cat.id ? 'border-amber-400 bg-amber-50' : 'border-transparent bg-gray-50 hover:bg-gray-100'"
@@ -618,28 +764,30 @@ function handleDelete(id: string) {
         </div>
 
         <div class="mb-5">
-          <label class="block text-xs font-semibold text-gray-500 mb-2.5">月度预算上限（元）</label>
+          <label class="block text-xs font-semibold text-gray-500 mb-2.5">月度{{ editingBudgetType === 'income' ? '收入目标' : '预算上限' }}（元）</label>
           <div class="flex items-baseline gap-2 py-3.5 px-4 bg-gray-50 rounded-xl border-2 border-transparent focus-within:border-amber-400 transition-colors">
             <span class="text-2xl font-bold text-gray-700">¥</span>
             <input
               v-model="editingBudgetAmount"
               type="number"
-              placeholder="输入预算金额，如 1000"
+              :placeholder="editingBudgetType === 'income' ? '输入收入目标，如 10000' : '输入预算金额，如 1000'"
               autofocus
               class="flex-1 text-2xl font-bold border-none bg-transparent outline-none text-gray-700 placeholder-gray-300"
             />
           </div>
           <div v-if="editingBudgetCategoryId" class="mt-2.5 flex items-center gap-2 text-[11px] text-gray-400">
-            <span>当前已用：</span>
-            <span class="font-semibold text-gray-600">¥{{ store.getMonthlyExpenseByCategory(editingBudgetCategoryId).toFixed(0) }}</span>
+            <span>{{ editingBudgetType === 'income' ? '当前已达：' : '当前已用：' }}</span>
+            <span class="font-semibold text-gray-600">
+              ¥{{ store.getMonthlyAmountByCategory(editingBudgetCategoryId, editingBudgetType).toFixed(0) }}
+            </span>
             <span v-if="editingBudgetAmount && parseFloat(editingBudgetAmount) > 0" class="text-gray-300">|</span>
             <span v-if="editingBudgetAmount && parseFloat(editingBudgetAmount) > 0">
-              <span>剩余可用：</span>
+              <span>{{ editingBudgetType === 'income' ? '还差：' : '剩余可用：' }}</span>
               <span
                 class="font-semibold"
-                :class="(parseFloat(editingBudgetAmount) || 0) - store.getMonthlyExpenseByCategory(editingBudgetCategoryId) < 0 ? 'text-red-500' : 'text-mint-600'"
+                :class="(parseFloat(editingBudgetAmount) || 0) - store.getMonthlyAmountByCategory(editingBudgetCategoryId, editingBudgetType) < 0 ? 'text-red-500' : 'text-mint-600'"
               >
-                ¥{{ Math.max(0, (parseFloat(editingBudgetAmount) || 0) - store.getMonthlyExpenseByCategory(editingBudgetCategoryId)).toFixed(0) }}
+                ¥{{ Math.max(0, (parseFloat(editingBudgetAmount) || 0) - store.getMonthlyAmountByCategory(editingBudgetCategoryId, editingBudgetType)).toFixed(0) }}
               </span>
             </span>
           </div>

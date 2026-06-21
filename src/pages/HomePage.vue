@@ -9,7 +9,8 @@ import AccountBook from '@/components/AccountBook.vue'
 import WishList from '@/components/WishList.vue'
 import Workshop from '@/components/Workshop.vue'
 import RecurringBills from '@/components/RecurringBills.vue'
-import { Bell, Calendar } from 'lucide-vue-next'
+import { Bell, Calendar, AlertTriangle } from 'lucide-vue-next'
+import { getIconComponent } from '@/utils/iconMap'
 import type { SavingEvent } from '@/stores/saving'
 import type { RecurringBill } from '@/types'
 
@@ -160,6 +161,10 @@ onMounted(async () => {
       showReminderModal.value = true
     }
   }, 800)
+
+  setTimeout(() => {
+    store.checkAndNotifyAllOverspentBudgets()
+  }, 1200)
 })
 </script>
 
@@ -191,6 +196,69 @@ onMounted(async () => {
             </div>
             <div class="text-right text-[10px] text-gray-400 mt-1">
               已完成 {{ store.milestoneProgress.toFixed(0) }}%
+            </div>
+          </div>
+        </div>
+
+        <div
+          v-if="store.hasOverspentBudgets"
+          class="px-4 pb-3"
+        >
+          <div
+            class="bg-red-50 border border-red-100 rounded-2xl p-3.5 shadow-softer cursor-pointer hover:shadow-soft transition-all active:scale-[0.99]"
+            @click="handleTabChange('account')"
+          >
+            <div class="flex items-center justify-between mb-2.5">
+              <div class="flex items-center gap-2">
+                <div class="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center animate-pulse">
+                  <AlertTriangle :size="16" class="text-red-500" />
+                </div>
+                <div>
+                  <div class="text-sm font-bold text-red-600">预算超支提醒</div>
+                  <div class="text-[11px] text-red-400">
+                    {{ store.overspentBudgets.length }} 个分类已超预算
+                  </div>
+                </div>
+              </div>
+              <div class="text-right">
+                <div class="text-xs font-semibold text-red-500">查看详情 →</div>
+              </div>
+            </div>
+            <div class="flex flex-wrap gap-1.5">
+              <div
+                v-for="stat in store.overspentBudgets.slice(0, 5)"
+                :key="stat.categoryId"
+                class="flex items-center gap-1 px-2 py-1 bg-white rounded-lg border border-red-100"
+              >
+                <div
+                  class="w-5 h-5 rounded flex items-center justify-center"
+                  :style="{
+                    backgroundColor: (getCategoryById(stat.categoryId)?.color || '#9CA3AF') + '20',
+                    color: getCategoryById(stat.categoryId)?.color || '#9CA3AF',
+                  }"
+                >
+                  <component
+                    v-if="getIconComponent(getCategoryById(stat.categoryId)?.icon || '')"
+                    :is="getIconComponent(getCategoryById(stat.categoryId)?.icon || '')"
+                    :size="11"
+                  />
+                  <span v-else class="text-[10px]">📌</span>
+                </div>
+                <span class="text-[10px] font-semibold text-red-600">
+                  {{ getCategoryById(stat.categoryId)?.name }}
+                </span>
+                <span class="text-[10px] font-bold text-red-500">
+                  +¥{{ (stat.usedAmount - stat.budgetAmount).toFixed(0) }}
+                </span>
+              </div>
+              <div
+                v-if="store.overspentBudgets.length > 5"
+                class="flex items-center px-2 py-1 bg-white rounded-lg border border-red-100"
+              >
+                <span class="text-[10px] font-medium text-red-400">
+                  +{{ store.overspentBudgets.length - 5 }} 个
+                </span>
+              </div>
             </div>
           </div>
         </div>

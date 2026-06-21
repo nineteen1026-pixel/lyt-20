@@ -13,6 +13,7 @@ import type {
 } from '@/types'
 import { saveToStorage, loadFromStorage } from '@/utils/storage'
 import { validateImportData } from '@/utils/export'
+import { useCategories } from '@/composables/useCategories'
 
 export interface SavingEvent {
   type: 'income' | 'expense' | 'decoration' | 'milestone' | 'wish'
@@ -86,7 +87,7 @@ export const useSavingStore = defineStore('saving', () => {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   }
 
-  function getMonthlyExpenseByCategory(categoryId: string): number {
+  function getMonthlyAmountByCategory(categoryId: string, type: TransactionType): number {
     const now = new Date()
     const currentMonth = now.getMonth()
     const currentYear = now.getFullYear()
@@ -94,13 +95,21 @@ export const useSavingStore = defineStore('saving', () => {
       .filter((t) => {
         const d = new Date(t.date)
         return (
-          t.type === 'expense' &&
+          t.type === type &&
           t.categoryId === categoryId &&
           d.getMonth() === currentMonth &&
           d.getFullYear() === currentYear
         )
       })
       .reduce((sum, t) => sum + t.amount, 0)
+  }
+
+  function getMonthlyExpenseByCategory(categoryId: string): number {
+    return getMonthlyAmountByCategory(categoryId, 'expense')
+  }
+
+  function getMonthlyIncomeByCategory(categoryId: string): number {
+    return getMonthlyAmountByCategory(categoryId, 'income')
   }
 
   function getBudgetByCategory(categoryId: string): CategoryBudget | undefined {
@@ -132,6 +141,7 @@ export const useSavingStore = defineStore('saving', () => {
 
   interface BudgetStat {
     categoryId: string
+    categoryType: TransactionType
     budgetAmount: number
     usedAmount: number
     remainingAmount: number
@@ -142,11 +152,15 @@ export const useSavingStore = defineStore('saving', () => {
 
   const budgetStats = computed<BudgetStat[]>(() => {
     return budgets.value.map((budget) => {
-      const used = getMonthlyExpenseByCategory(budget.categoryId)
+      const category = [...useCategories().categories.value.income, ...useCategories().categories.value.expense]
+        .find((c) => c.id === budget.categoryId)
+      const type: TransactionType = category?.type || 'expense'
+      const used = getMonthlyAmountByCategory(budget.categoryId, type)
       const remaining = budget.amount - used
       const percent = budget.amount > 0 ? (used / budget.amount) * 100 : 0
       return {
         categoryId: budget.categoryId,
+        categoryType: type,
         budgetAmount: budget.amount,
         usedAmount: used,
         remainingAmount: Math.max(0, remaining),
@@ -173,15 +187,30 @@ export const useSavingStore = defineStore('saving', () => {
 
     budget.lastNotifiedOverspendMonth = monthKey
 
+    const typeText = stat.categoryType === 'income' ? '收入' : '支出'
+    const overspendAmount = stat.usedAmount - stat.budgetAmount
+
     addEvent({
-      type: 'expense',
-      amount: stat.usedAmount - stat.budgetAmount,
-      message: `⚠️ 本月「${categoryName}」已超预算！已用 ¥${stat.usedAmount.toFixed(0)}，预算 ¥${stat.budgetAmount.toFixed(0)}，超支 ¥${(stat.usedAmount - stat.budgetAmount).toFixed(0)}`,
+      type: stat.categoryType === 'income' ? 'income' : 'expense',
+      amount: overspendAmount,
+      message: `⚠️ 本月「${categoryName}」${typeText}已超预算！已${stat.categoryType === 'income' ? '入账' : '用'} ¥${stat.usedAmount.toFixed(0)}，预算 ¥${stat.budgetAmount.toFixed(0)}，超${stat.categoryType === 'income' ? '额' : '支'} ¥${overspendAmount.toFixed(0)}`,
     })
   }
 
+  function checkAndNotifyAllOverspentBudgets() {
+    const { getCategoryById } = useCategories()
+    for (const stat of overspentBudgets.value) {
+      const categoryName = getCategoryById(stat.categoryId)?.name || '其他'
+      checkAndNotifyBudgetOverspent(stat.categoryId, categoryName)
+    }
+  }
+
   const totalBudgetedExpense = computed(() => {
-    return budgetStats.value.reduce((sum, b) => sum + b.budgetAmount, 0)
+    return budgetStats.value.filter(b => b.categoryType === 'expense').reduce((sum, b) => sum + b.budgetAmount, 0)
+  })
+
+  const totalBudgetedIncome = computed(() => {
+    return budgetStats.value.filter(b => b.categoryType === 'income').reduce((sum, b) => sum + b.budgetAmount, 0)
   })
 
   const totalBudgetUsed = computed(() => {
@@ -472,6 +501,9 @@ export const useSavingStore = defineStore('saving', () => {
         amount: record.bill.amount,
         message: `🔄 周期性账单「${record.bill.name}」自动${record.bill.type === 'income' ? '入账' : '扣费'} ¥${record.bill.amount}`,
       })
+      const { getCategoryById } = useCategories()
+      const categoryName = getCategoryById(record.bill.categoryId)?.name || '其他'
+      checkAndNotifyBudgetOverspent(record.bill.categoryId, categoryName)
     }
 
     lastRecurringCheckDate.value = todayStr
@@ -780,6 +812,7 @@ export const useSavingStore = defineStore('saving', () => {
     nearOverspentBudgets,
     hasOverspentBudgets,
     totalBudgetedExpense,
+    totalBudgetedIncome,
     totalBudgetUsed,
     calculateMonthlyAmount,
     addTransaction,
@@ -801,10 +834,13 @@ export const useSavingStore = defineStore('saving', () => {
     getDaysUntilDue,
     getRecurringBillsByCategory,
     getMonthlyExpenseByCategory,
+    getMonthlyIncomeByCategory,
+    getMonthlyAmountByCategory,
     getBudgetByCategory,
     setBudget,
     removeBudget,
     checkAndNotifyBudgetOverspent,
+    checkAndNotifyAllOverspentBudgets,
     loadInitialData,
     importData,
     getExportState,
