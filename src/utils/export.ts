@@ -193,13 +193,25 @@ export function validateImportData(data: unknown): data is ExportData {
     typeof d.points === 'number' &&
     Array.isArray(d.transactions) &&
     Array.isArray(d.wishes) &&
-    Array.isArray(d.ownedDecorations) &&
-    typeof d.activeDecorations === 'object' &&
-    d.activeDecorations !== null &&
     Array.isArray(d.recurringBills) &&
     Array.isArray(d.budgets)
 
   if (!baseValid) return false
+
+  if (Array.isArray(d.rooms)) {
+    for (const room of d.rooms) {
+      if (typeof room !== 'object' || room === null) return false
+      const r = room as Record<string, unknown>
+      if (typeof r.id !== 'string' || typeof r.name !== 'string' || typeof r.emoji !== 'string') return false
+      if (!Array.isArray(r.ownedDecorations)) return false
+      if (typeof r.activeDecorations !== 'object' || r.activeDecorations === null) return false
+    }
+    if (d.currentRoomId !== undefined && typeof d.currentRoomId !== 'string') return false
+  } else if (Array.isArray(d.ownedDecorations)) {
+    // old format - still valid for migration
+  } else {
+    return false
+  }
 
   if (d.unlockedAchievements !== undefined && !Array.isArray(d.unlockedAchievements)) {
     return false

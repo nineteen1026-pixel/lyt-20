@@ -12,6 +12,7 @@ import type {
   RecurrenceCycle,
   CategoryBudget,
   Achievement,
+  Room,
 } from '@/types'
 import { saveToStorage, loadFromStorage } from '@/utils/storage'
 import { validateImportData } from '@/utils/export'
@@ -27,17 +28,27 @@ export interface SavingEvent {
   timestamp: number
 }
 
+const defaultRoomId = 'room-default'
+
 const initialState = {
   balance: 0,
   points: 0,
   transactions: [] as Transaction[],
   wishes: [] as Wish[],
-  ownedDecorations: [] as string[],
-  activeDecorations: {
-    wallpaper: null,
-    floor: null,
-    items: [] as string[],
-  } as ActiveDecorations,
+  rooms: [
+    {
+      id: defaultRoomId,
+      name: '我的小屋',
+      emoji: '🏠',
+      ownedDecorations: [] as string[],
+      activeDecorations: {
+        wallpaper: null,
+        floor: null,
+        items: [] as string[],
+      } as ActiveDecorations,
+    },
+  ] as Room[],
+  currentRoomId: defaultRoomId,
   lastMilestone: 0,
   recurringBills: [] as RecurringBill[],
   lastRecurringCheckDate: '',
@@ -51,8 +62,8 @@ export const useSavingStore = defineStore('saving', () => {
   const points = ref(initialState.points)
   const transactions = ref<Transaction[]>(initialState.transactions)
   const wishes = ref<Wish[]>(initialState.wishes)
-  const ownedDecorations = ref<string[]>(initialState.ownedDecorations)
-  const activeDecorations = ref<ActiveDecorations>(initialState.activeDecorations)
+  const rooms = ref<Room[]>(JSON.parse(JSON.stringify(initialState.rooms)))
+  const currentRoomId = ref(initialState.currentRoomId)
   const lastMilestone = ref(initialState.lastMilestone)
   const recurringBills = ref<RecurringBill[]>(initialState.recurringBills)
   const lastRecurringCheckDate = ref(initialState.lastRecurringCheckDate)
@@ -63,6 +74,13 @@ export const useSavingStore = defineStore('saving', () => {
   const newlyUnlockedAchievements = ref<Achievement[]>([])
   const showAchievementNotification = ref(false)
   const currentNotificationAchievement = ref<Achievement | null>(null)
+
+  const currentRoom = computed(() => {
+    return rooms.value.find(r => r.id === currentRoomId.value) || rooms.value[0]
+  })
+
+  const ownedDecorations = computed(() => currentRoom.value.ownedDecorations)
+  const activeDecorations = computed(() => currentRoom.value.activeDecorations)
 
   const monthlyIncome = computed(() => {
     const now = new Date()
@@ -748,7 +766,7 @@ export const useSavingStore = defineStore('saving', () => {
       totalIncome,
       totalTransactions: transactions.value.length,
       wishesAchieved: achievedWishes,
-      decorationsOwned: ownedDecorations.value.length,
+      decorationsOwned: rooms.value.reduce((sum, r) => sum + r.ownedDecorations.length, 0),
       monthsWithSurplus,
       consecutiveNoOverspend,
     }
@@ -973,18 +991,18 @@ export const useSavingStore = defineStore('saving', () => {
 
   function buyDecoration(decoration: Decoration) {
     if (points.value < decoration.price) return false
-    if (ownedDecorations.value.includes(decoration.id)) return false
+    if (currentRoom.value.ownedDecorations.includes(decoration.id)) return false
 
     points.value -= decoration.price
-    ownedDecorations.value.push(decoration.id)
+    currentRoom.value.ownedDecorations.push(decoration.id)
     recentlyUpdatedDecoration.value = decoration.id
 
     if (decoration.type === 'wallpaper') {
-      activeDecorations.value.wallpaper = decoration.id
+      currentRoom.value.activeDecorations.wallpaper = decoration.id
     } else if (decoration.type === 'floor') {
-      activeDecorations.value.floor = decoration.id
+      currentRoom.value.activeDecorations.floor = decoration.id
     } else if (decoration.type === 'item') {
-      activeDecorations.value.items.push(decoration.id)
+      currentRoom.value.activeDecorations.items.push(decoration.id)
     }
 
     addEvent({
@@ -1005,22 +1023,22 @@ export const useSavingStore = defineStore('saving', () => {
   }
 
   function toggleDecorationItem(itemId: string) {
-    if (!ownedDecorations.value.includes(itemId)) return
-    const idx = activeDecorations.value.items.indexOf(itemId)
+    if (!currentRoom.value.ownedDecorations.includes(itemId)) return
+    const idx = currentRoom.value.activeDecorations.items.indexOf(itemId)
     if (idx === -1) {
-      activeDecorations.value.items.push(itemId)
+      currentRoom.value.activeDecorations.items.push(itemId)
       recentlyUpdatedDecoration.value = itemId
       setTimeout(() => {
         recentlyUpdatedDecoration.value = null
       }, 2000)
     } else {
-      activeDecorations.value.items.splice(idx, 1)
+      currentRoom.value.activeDecorations.items.splice(idx, 1)
     }
   }
 
   function setActiveWallpaper(id: string | null) {
-    if (id && !ownedDecorations.value.includes(id)) return
-    activeDecorations.value.wallpaper = id
+    if (id && !currentRoom.value.ownedDecorations.includes(id)) return
+    currentRoom.value.activeDecorations.wallpaper = id
     if (id) {
       recentlyUpdatedDecoration.value = id
       setTimeout(() => {
@@ -1030,8 +1048,8 @@ export const useSavingStore = defineStore('saving', () => {
   }
 
   function setActiveFloor(id: string | null) {
-    if (id && !ownedDecorations.value.includes(id)) return
-    activeDecorations.value.floor = id
+    if (id && !currentRoom.value.ownedDecorations.includes(id)) return
+    currentRoom.value.activeDecorations.floor = id
     if (id) {
       recentlyUpdatedDecoration.value = id
       setTimeout(() => {
@@ -1046,17 +1064,78 @@ export const useSavingStore = defineStore('saving', () => {
     }
   }
 
+  function addRoom(name: string, emoji: string) {
+    const id = `room-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const room: Room = {
+      id,
+      name,
+      emoji,
+      ownedDecorations: [],
+      activeDecorations: { wallpaper: null, floor: null, items: [] },
+    }
+    rooms.value.push(room)
+    currentRoomId.value = id
+    addEvent({
+      type: 'decoration',
+      message: `🏠 新房间「${emoji} ${name}」已创建！`,
+    })
+    return room
+  }
+
+  function deleteRoom(id: string) {
+    if (rooms.value.length <= 1) return false
+    const idx = rooms.value.findIndex(r => r.id === id)
+    if (idx === -1) return false
+    const room = rooms.value[idx]
+    rooms.value.splice(idx, 1)
+    if (currentRoomId.value === id) {
+      currentRoomId.value = rooms.value[0].id
+    }
+    addEvent({
+      type: 'decoration',
+      message: `🗑️ 房间「${room.emoji} ${room.name}」已删除`,
+    })
+    return true
+  }
+
+  function switchRoom(id: string) {
+    const room = rooms.value.find(r => r.id === id)
+    if (!room) return
+    currentRoomId.value = id
+  }
+
+  function renameRoom(id: string, name: string, emoji?: string) {
+    const room = rooms.value.find(r => r.id === id)
+    if (!room) return
+    room.name = name
+    if (emoji !== undefined) room.emoji = emoji
+  }
+
   function loadInitialData(data: Partial<ExportData>) {
     if (typeof data.balance === 'number') balance.value = data.balance
     if (typeof data.points === 'number') points.value = data.points
     if (Array.isArray(data.transactions)) transactions.value = data.transactions
     if (Array.isArray(data.wishes)) wishes.value = data.wishes
-    if (Array.isArray(data.ownedDecorations)) ownedDecorations.value = data.ownedDecorations
-    if (data.activeDecorations) activeDecorations.value = { ...initialState.activeDecorations, ...data.activeDecorations }
     if (typeof data.lastMilestone === 'number') lastMilestone.value = data.lastMilestone
     if (Array.isArray(data.recurringBills)) recurringBills.value = data.recurringBills
     if (typeof data.lastRecurringCheckDate === 'string') lastRecurringCheckDate.value = data.lastRecurringCheckDate
     if (Array.isArray(data.budgets)) budgets.value = data.budgets
+
+    if (Array.isArray(data.rooms) && data.rooms.length > 0) {
+      rooms.value = data.rooms
+      currentRoomId.value = data.currentRoomId || data.rooms[0].id
+    } else if (Array.isArray((data as Record<string, unknown>).ownedDecorations) || (data as Record<string, unknown>).activeDecorations) {
+      const oldOwned = (data as Record<string, unknown>).ownedDecorations as string[] || []
+      const oldActive = (data as Record<string, unknown>).activeDecorations as ActiveDecorations || { wallpaper: null, floor: null, items: [] }
+      rooms.value = [{
+        id: defaultRoomId,
+        name: '我的小屋',
+        emoji: '🏠',
+        ownedDecorations: oldOwned,
+        activeDecorations: { ...initialState.rooms[0].activeDecorations, ...oldActive },
+      }]
+      currentRoomId.value = defaultRoomId
+    }
 
     if (data.unlockedAchievements || data.stats) {
       const achievements = useAchievements()
@@ -1082,15 +1161,15 @@ export const useSavingStore = defineStore('saving', () => {
       points: points.value,
       transactions: transactions.value,
       wishes: wishes.value,
-      ownedDecorations: ownedDecorations.value,
-      activeDecorations: activeDecorations.value,
+      rooms: rooms.value,
+      currentRoomId: currentRoomId.value,
       lastMilestone: lastMilestone.value,
       recurringBills: recurringBills.value,
       lastRecurringCheckDate: lastRecurringCheckDate.value,
       budgets: budgets.value,
       unlockedAchievements: achievementState.unlockedAchievements,
       stats: achievementState.stats,
-      version: '1.1.0',
+      version: '1.2.0',
       exportedAt: new Date().toISOString(),
     }
   }
@@ -1103,8 +1182,8 @@ export const useSavingStore = defineStore('saving', () => {
       points: points.value,
       transactions: transactions.value,
       wishes: wishes.value,
-      ownedDecorations: ownedDecorations.value,
-      activeDecorations: activeDecorations.value,
+      rooms: rooms.value,
+      currentRoomId: currentRoomId.value,
       lastMilestone: lastMilestone.value,
       recurringBills: recurringBills.value,
       lastRecurringCheckDate: lastRecurringCheckDate.value,
@@ -1134,6 +1213,9 @@ export const useSavingStore = defineStore('saving', () => {
     points,
     transactions,
     wishes,
+    rooms,
+    currentRoomId,
+    currentRoom,
     ownedDecorations,
     activeDecorations,
     lastMilestone,
@@ -1192,6 +1274,10 @@ export const useSavingStore = defineStore('saving', () => {
     toggleDecorationItem,
     setActiveWallpaper,
     setActiveFloor,
+    addRoom,
+    deleteRoom,
+    switchRoom,
+    renameRoom,
     addRecurringBill,
     updateRecurringBill,
     deleteRecurringBill,

@@ -92,6 +92,15 @@ onMounted(() => {
 
 <template>
   <div class="px-4 pb-[100px]">
+    <div class="flex items-center gap-2 mb-3 px-1">
+      <div class="bg-warm-50 rounded-xl px-3 py-1.5 text-xs font-semibold text-warm-600 flex items-center gap-1.5">
+        <span>{{ store.currentRoom.emoji }}</span>
+        <span>{{ store.currentRoom.name }}</span>
+        <span class="text-warm-400">·</span>
+        <span class="text-warm-400">当前房间</span>
+      </div>
+    </div>
+
     <div class="flex items-stretch gap-3 mb-4">
       <div class="flex-1 bg-gradient-to-br from-warm-500 to-warm-600 rounded-[20px] p-4.5 text-white relative overflow-hidden">
         <div class="absolute -top-5 -right-5 w-20 h-20 bg-white/15 rounded-full"></div>
@@ -222,7 +231,7 @@ onMounted(() => {
     </div>
 
     <div class="text-center text-xs text-gray-400 px-4 py-2 bg-warm-500/8 rounded-xl">
-      💡 提示：记录收入可获得等额积分，用来装饰你的小屋哦～
+      💡 提示：装饰将添加到当前房间「{{ store.currentRoom.emoji }} {{ store.currentRoom.name }}」，记录收入可获得等额积分～
     </div>
   </div>
 </template>

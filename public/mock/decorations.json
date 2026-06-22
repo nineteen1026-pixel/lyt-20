@@ -57,6 +57,24 @@
         "backgroundColor": "#E0F4FF",
         "pattern": "cloud-sky"
       }
+    },
+    {
+      "id": "wp-lavender-dream",
+      "name": "薰衣草梦",
+      "type": "wallpaper",
+      "price": 160,
+      "style": {
+        "gradient": "linear-gradient(180deg, #E8D5F5 0%, #D4B8E8 50%, #C9A0DC 100%)"
+      }
+    },
+    {
+      "id": "wp-starlight",
+      "name": "星光夜色",
+      "type": "wallpaper",
+      "price": 250,
+      "style": {
+        "gradient": "linear-gradient(180deg, #1A1A2E 0%, #16213E 50%, #0F3460 100%)"
+      }
     }
   ],
   "floors": [
@@ -108,6 +126,16 @@
       "style": {
         "backgroundColor": "#F0F0F0",
         "pattern": "marble"
+      }
+    },
+    {
+      "id": "fl-carpet-soft",
+      "name": "软绵绵地毯",
+      "type": "floor",
+      "price": 120,
+      "style": {
+        "backgroundColor": "#F5E6D3",
+        "pattern": "rug-cozy"
       }
     }
   ],
@@ -219,6 +247,105 @@
       "emoji": "🧸",
       "position": { "x": 55, "y": 65 },
       "size": { "width": 40, "height": 50 }
+    },
+    {
+      "id": "item-bed",
+      "name": "舒适小床",
+      "type": "item",
+      "price": 150,
+      "emoji": "🛏️",
+      "position": { "x": 50, "y": 70 },
+      "size": { "width": 80, "height": 50 }
+    },
+    {
+      "id": "item-alarm-clock",
+      "name": "闹钟",
+      "type": "item",
+      "price": 35,
+      "emoji": "⏰",
+      "position": { "x": 80, "y": 48 },
+      "size": { "width": 32, "height": 32 }
+    },
+    {
+      "id": "item-moon-lamp",
+      "name": "月亮灯",
+      "type": "item",
+      "price": 75,
+      "emoji": "🌙",
+      "position": { "x": 25, "y": 20 },
+      "size": { "width": 44, "height": 44 }
+    },
+    {
+      "id": "item-pillow",
+      "name": "抱枕",
+      "type": "item",
+      "price": 40,
+      "emoji": "🛋️",
+      "position": { "x": 40, "y": 78 },
+      "size": { "width": 40, "height": 35 }
+    },
+    {
+      "id": "item-sofa",
+      "name": "小沙发",
+      "type": "item",
+      "price": 180,
+      "emoji": "🛋️",
+      "position": { "x": 45, "y": 68 },
+      "size": { "width": 70, "height": 45 }
+    },
+    {
+      "id": "item-tv",
+      "name": "电视",
+      "type": "item",
+      "price": 200,
+      "emoji": "📺",
+      "position": { "x": 50, "y": 20 },
+      "size": { "width": 70, "height": 44 }
+    },
+    {
+      "id": "item-tea-set",
+      "name": "茶具",
+      "type": "item",
+      "price": 65,
+      "emoji": "🍵",
+      "position": { "x": 30, "y": 60 },
+      "size": { "width": 36, "height": 32 }
+    },
+    {
+      "id": "item-dog",
+      "name": "小狗狗",
+      "type": "item",
+      "price": 220,
+      "emoji": "🐶",
+      "position": { "x": 60, "y": 78 },
+      "size": { "width": 50, "height": 42 }
+    },
+    {
+      "id": "item-candle",
+      "name": "香薰蜡烛",
+      "type": "item",
+      "price": 55,
+      "emoji": "🕯️",
+      "position": { "x": 72, "y": 50 },
+      "size": { "width": 28, "height": 36 }
+    },
+    {
+      "id": "item-photo-frame",
+      "name": "相框",
+      "type": "item",
+      "price": 35,
+      "emoji": "🖼️",
+      "position": { "x": 22, "y": 18 },
+      "size": { "width": 32, "height": 40 }
+    },
+    {
+      "id": "item-star-light",
+      "name": "星星灯串",
+      "type": "item",
+      "price": 90,
+      "emoji": "✨",
+      "position": { "x": 50, "y": 10 },
+      "size": { "width": 80, "height": 24 }
     }
   ]
 }

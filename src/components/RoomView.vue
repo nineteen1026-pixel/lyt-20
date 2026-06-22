@@ -13,6 +13,16 @@ const achievements = useAchievements()
 
 const showAchievementPanel = ref(false)
 const selectedAchievement = ref<Achievement | null>(null)
+const showRoomMenu = ref(false)
+const showAddRoomModal = ref(false)
+const newRoomName = ref('')
+const newRoomEmoji = ref('🏠')
+const showDeleteConfirm = ref<string | null>(null)
+const editingRoomId = ref<string | null>(null)
+const editingRoomName = ref('')
+const editingRoomEmoji = ref('')
+
+const roomEmojis = ['🏠', '🛋️', '🛏️', '🍳', '📚', '🎮', '🌿', '☀️', '🌙', '❄️']
 
 onMounted(async () => {
   await achievements.loadAchievements()
@@ -49,6 +59,40 @@ function handleBadgeClick(achievement: Achievement) {
 
 function closeAchievementDetail() {
   selectedAchievement.value = null
+}
+
+function handleSwitchRoom(id: string) {
+  store.switchRoom(id)
+  showRoomMenu.value = false
+}
+
+function handleAddRoom() {
+  if (!newRoomName.value.trim()) return
+  store.addRoom(newRoomName.value.trim(), newRoomEmoji.value)
+  newRoomName.value = ''
+  newRoomEmoji.value = '🏠'
+  showAddRoomModal.value = false
+  showRoomMenu.value = false
+}
+
+function handleDeleteRoom(id: string) {
+  store.deleteRoom(id)
+  showDeleteConfirm.value = null
+  showRoomMenu.value = false
+}
+
+function startEditRoom(id: string) {
+  const room = store.rooms.find(r => r.id === id)
+  if (!room) return
+  editingRoomId.value = id
+  editingRoomName.value = room.name
+  editingRoomEmoji.value = room.emoji
+}
+
+function confirmEditRoom() {
+  if (!editingRoomId.value || !editingRoomName.value.trim()) return
+  store.renameRoom(editingRoomId.value, editingRoomName.value.trim(), editingRoomEmoji.value)
+  editingRoomId.value = null
 }
 
 const activeWallpaper = computed(() => {
@@ -137,6 +181,75 @@ function getPatternSize(pattern: string): string {
 <template>
   <div class="w-full flex justify-center p-4">
     <div class="w-full max-w-[380px]">
+      <div class="flex items-center gap-2 mb-3 px-1">
+        <div class="flex gap-1.5 flex-1 overflow-x-auto scrollbar-hide">
+          <button
+            v-for="room in store.rooms"
+            :key="room.id"
+            class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold whitespace-nowrap transition-all duration-200"
+            :class="room.id === store.currentRoomId
+              ? 'bg-warm-500 text-white shadow-md'
+              : 'bg-white text-gray-600 shadow-softer hover:bg-warm-50 hover:text-warm-500'"
+            @click="handleSwitchRoom(room.id)"
+          >
+            <span>{{ room.emoji }}</span>
+            <span>{{ room.name }}</span>
+          </button>
+        </div>
+        <button
+          class="w-8 h-8 rounded-full bg-white shadow-softer flex items-center justify-center text-gray-400 hover:text-warm-500 hover:bg-warm-50 transition-all duration-200 flex-shrink-0"
+          @click="showRoomMenu = !showRoomMenu"
+        >
+          ⋯
+        </button>
+      </div>
+
+      <Transition name="slide">
+        <div v-if="showRoomMenu" class="mb-3 bg-white rounded-2xl shadow-soft p-3">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-bold text-gray-700">房间管理</span>
+            <button
+              class="text-xs text-warm-500 font-semibold px-2.5 py-1 bg-warm-50 rounded-lg hover:bg-warm-100 transition-colors"
+              @click="showAddRoomModal = true"
+            >
+              + 新增
+            </button>
+          </div>
+          <div class="space-y-1.5">
+            <div
+              v-for="room in store.rooms"
+              :key="room.id"
+              class="flex items-center gap-2.5 px-2.5 py-2 rounded-xl transition-colors"
+              :class="room.id === store.currentRoomId ? 'bg-warm-50' : 'hover:bg-gray-50'"
+            >
+              <button
+                class="flex items-center gap-2 flex-1 min-w-0"
+                @click="handleSwitchRoom(room.id)"
+              >
+                <span class="text-lg">{{ room.emoji }}</span>
+                <span class="text-sm font-semibold text-gray-700 truncate">{{ room.name }}</span>
+                <span v-if="room.id === store.currentRoomId" class="text-xs text-warm-500">● 当前</span>
+              </button>
+              <div class="flex items-center gap-1 flex-shrink-0">
+                <button
+                  class="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-blue-500 hover:bg-blue-50 transition-colors text-xs"
+                  @click="startEditRoom(room.id)"
+                >
+                  ✏️
+                </button>
+                <button
+                  v-if="store.rooms.length > 1"
+                  class="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors text-xs"
+                  @click="showDeleteConfirm = room.id"
+                >
+                  🗑️
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Transition>
+
       <div
         class="aspect-[4/3] rounded-[24px] overflow-hidden flex flex-col relative transition-all duration-500"
         :class="{ 'animate-[roomGlow_2s_ease-in-out_infinite]': store.recentlyUpdatedDecoration }"
@@ -354,6 +467,147 @@ function getPatternSize(pattern: string): string {
           </div>
         </div>
       </Transition>
+
+      <Transition name="modal">
+        <div
+          v-if="showAddRoomModal"
+          class="fixed inset-0 z-50 flex items-center justify-center p-4"
+          @click.self="showAddRoomModal = false"
+        >
+          <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div class="relative bg-white rounded-3xl p-6 shadow-2xl max-w-sm w-full animate-[achievementBounceIn_0.4s_ease-out]">
+            <button
+              class="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors"
+              @click="showAddRoomModal = false"
+            >
+              ✕
+            </button>
+
+            <h3 class="text-lg font-bold text-gray-800 mb-4">🏠 新增房间</h3>
+
+            <div class="mb-4">
+              <div class="text-sm font-semibold text-gray-600 mb-2">选择图标</div>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  v-for="emoji in roomEmojis"
+                  :key="emoji"
+                  class="w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all duration-200"
+                  :class="newRoomEmoji === emoji ? 'bg-warm-100 ring-2 ring-warm-400 scale-110' : 'bg-gray-50 hover:bg-gray-100'"
+                  @click="newRoomEmoji = emoji"
+                >
+                  {{ emoji }}
+                </button>
+              </div>
+            </div>
+
+            <div class="mb-5">
+              <div class="text-sm font-semibold text-gray-600 mb-2">房间名称</div>
+              <input
+                v-model="newRoomName"
+                type="text"
+                placeholder="例如：卧室、客厅…"
+                class="w-full px-4 py-3 bg-gray-50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-warm-300 transition-all"
+                maxlength="10"
+                @keyup.enter="handleAddRoom"
+              />
+            </div>
+
+            <button
+              class="w-full btn-primary"
+              :class="{ 'opacity-50 cursor-not-allowed': !newRoomName.trim() }"
+              :disabled="!newRoomName.trim()"
+              @click="handleAddRoom"
+            >
+              创建房间
+            </button>
+          </div>
+        </div>
+      </Transition>
+
+      <Transition name="modal">
+        <div
+          v-if="editingRoomId"
+          class="fixed inset-0 z-50 flex items-center justify-center p-4"
+          @click.self="editingRoomId = null"
+        >
+          <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div class="relative bg-white rounded-3xl p-6 shadow-2xl max-w-sm w-full animate-[achievementBounceIn_0.4s_ease-out]">
+            <button
+              class="absolute top-4 right-4 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors"
+              @click="editingRoomId = null"
+            >
+              ✕
+            </button>
+
+            <h3 class="text-lg font-bold text-gray-800 mb-4">✏️ 编辑房间</h3>
+
+            <div class="mb-4">
+              <div class="text-sm font-semibold text-gray-600 mb-2">选择图标</div>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  v-for="emoji in roomEmojis"
+                  :key="emoji"
+                  class="w-10 h-10 rounded-xl flex items-center justify-center text-xl transition-all duration-200"
+                  :class="editingRoomEmoji === emoji ? 'bg-warm-100 ring-2 ring-warm-400 scale-110' : 'bg-gray-50 hover:bg-gray-100'"
+                  @click="editingRoomEmoji = emoji"
+                >
+                  {{ emoji }}
+                </button>
+              </div>
+            </div>
+
+            <div class="mb-5">
+              <div class="text-sm font-semibold text-gray-600 mb-2">房间名称</div>
+              <input
+                v-model="editingRoomName"
+                type="text"
+                class="w-full px-4 py-3 bg-gray-50 rounded-xl text-sm outline-none focus:ring-2 focus:ring-warm-300 transition-all"
+                maxlength="10"
+                @keyup.enter="confirmEditRoom"
+              />
+            </div>
+
+            <button
+              class="w-full btn-primary"
+              :class="{ 'opacity-50 cursor-not-allowed': !editingRoomName.trim() }"
+              :disabled="!editingRoomName.trim()"
+              @click="confirmEditRoom"
+            >
+              保存修改
+            </button>
+          </div>
+        </div>
+      </Transition>
+
+      <Transition name="modal">
+        <div
+          v-if="showDeleteConfirm"
+          class="fixed inset-0 z-50 flex items-center justify-center p-4"
+          @click.self="showDeleteConfirm = null"
+        >
+          <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div class="relative bg-white rounded-3xl p-6 shadow-2xl max-w-sm w-full">
+            <h3 class="text-lg font-bold text-gray-800 mb-2">🗑️ 删除房间</h3>
+            <p class="text-sm text-gray-600 mb-4">
+              确定删除该房间吗？房间内的装饰数据将一并删除，此操作不可撤销。
+            </p>
+            <div class="flex gap-3">
+              <button
+                class="flex-1 py-2.5 bg-gray-100 text-gray-600 rounded-xl font-semibold text-sm hover:bg-gray-200 transition-colors"
+                @click="showDeleteConfirm = null"
+              >
+                取消
+              </button>
+              <button
+                class="flex-1 py-2.5 bg-red-500 text-white rounded-xl font-semibold text-sm hover:bg-red-600 transition-colors"
+                @click="handleDeleteRoom(showDeleteConfirm)"
+              >
+                确认删除
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
     </Teleport>
     </div>
   </div>
@@ -490,5 +744,13 @@ function getPatternSize(pattern: string): string {
 .modal-enter-from .relative,
 .modal-leave-to .relative {
   transform: scale(0.8);
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 </style>

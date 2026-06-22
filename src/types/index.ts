@@ -65,6 +65,14 @@ export interface ActiveDecorations {
   items: string[]
 }
 
+export interface Room {
+  id: string
+  name: string
+  emoji: string
+  ownedDecorations: string[]
+  activeDecorations: ActiveDecorations
+}
+
 export type RecurrenceCycle = 'daily' | 'weekly' | 'monthly' | 'yearly'
 
 export interface RecurringBill {
@@ -90,8 +98,8 @@ export interface SavingState {
   points: number
   transactions: Transaction[]
   wishes: Wish[]
-  ownedDecorations: string[]
-  activeDecorations: ActiveDecorations
+  rooms: Room[]
+  currentRoomId: string
   lastMilestone: number
   recurringBills: RecurringBill[]
   lastRecurringCheckDate: string
@@ -149,19 +157,6 @@ export interface AchievementState {
     monthsWithSurplus: number
     consecutiveNoOverspend: number
   }
-}
-
-export interface SavingState {
-  balance: number
-  points: number
-  transactions: Transaction[]
-  wishes: Wish[]
-  ownedDecorations: string[]
-  activeDecorations: ActiveDecorations
-  lastMilestone: number
-  recurringBills: RecurringBill[]
-  lastRecurringCheckDate: string
-  budgets: CategoryBudget[]
 }
 
 export interface ExportData extends SavingState, AchievementState {

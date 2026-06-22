@@ -102,16 +102,54 @@
       "priority": "medium"
     }
   ],
-  "ownedDecorations": [
-    "wp-plain-warm",
-    "fl-wood-light",
-    "item-plant-small"
+  "rooms": [
+    {
+      "id": "room-default",
+      "name": "我的小屋",
+      "emoji": "🏠",
+      "ownedDecorations": [
+        "wp-plain-warm",
+        "fl-wood-light",
+        "item-plant-small"
+      ],
+      "activeDecorations": {
+        "wallpaper": "wp-plain-warm",
+        "floor": "fl-wood-light",
+        "items": ["item-plant-small"]
+      }
+    },
+    {
+      "id": "room-bedroom",
+      "name": "卧室",
+      "emoji": "🛏️",
+      "ownedDecorations": [
+        "wp-flower-soft",
+        "fl-rug-cozy"
+      ],
+      "activeDecorations": {
+        "wallpaper": "wp-flower-soft",
+        "floor": "fl-rug-cozy",
+        "items": []
+      }
+    },
+    {
+      "id": "room-living",
+      "name": "客厅",
+      "emoji": "🛋️",
+      "ownedDecorations": [
+        "wp-cloud-sky",
+        "fl-wood-warm",
+        "item-plant-big",
+        "item-cat"
+      ],
+      "activeDecorations": {
+        "wallpaper": "wp-cloud-sky",
+        "floor": "fl-wood-warm",
+        "items": ["item-plant-big", "item-cat"]
+      }
+    }
   ],
-  "activeDecorations": {
-    "wallpaper": "wp-plain-warm",
-    "floor": "fl-wood-light",
-    "items": ["item-plant-small"]
-  },
+  "currentRoomId": "room-default",
   "unlockedAchievements": [],
   "stats": {
     "totalIncome": 0,
